@@ -73,19 +73,17 @@ We will now introduce the intersection of two subgroups
 ## Definition of a intersection of subgroups
 -/
 /-- Defining the intersection of two subgroups `H` and `K`, and proving it is a subgroup. -/
-def mysubgroup_inter (H K : mysubgroup G) : mysubgroup G :=
-{ carrier := H.carrier ∩ K.carrier, -- Elements that are in both H and K
+def mysubgroup_inter (H K : mysubgroup G) : mysubgroup G where
+  carrier := H.carrier ∩ K.carrier -- Elements that are in both H and K
   mul_mem := by -- Closure under multiplication
     intro a b ha hb
     exact ⟨H.mul_mem ha.1 hb.1, K.mul_mem ha.2 hb.2⟩
 
-  one_mem := by
-    exact ⟨H.one_mem, K.one_mem⟩ -- 1 is in both
+  one_mem := ⟨H.one_mem, K.one_mem⟩ -- 1 is in both
 
   inv_mem := by
     intro a ha
     exact ⟨H.inv_mem ha.1, K.inv_mem ha.2⟩ -- Closure under inverses
-}
 
 /--
 Notation for the intersection of two subgroups `H` and `K`.
@@ -94,9 +92,9 @@ notation H " ⊓ " K => mysubgroup_inter H K
 
 /-- The intersection `H ⊓ K` is the largest subgroup contained in both `H` and `K`. -/
 lemma mysubgroup_inter_largest (H K S : mysubgroup G)
-  (hH : S.carrier ⊆ H.carrier)
-  (hK : S.carrier ⊆ K.carrier) :
-  S.carrier ⊆ (H ⊓ K).carrier := by
+    (hH : S.carrier ⊆ H.carrier)
+    (hK : S.carrier ⊆ K.carrier) :
+    S.carrier ⊆ (H ⊓ K).carrier := by
   intro x hx
   exact ⟨hH hx, hK hx⟩
 
@@ -117,6 +115,7 @@ def mysubgroup_closure (S : Set G) : mysubgroup G :=
 --takes all elements made by the product of a finite sequence of elements in the subset
 --`foldr` returns the product from left to right of the list `a`
 { carrier := { x | ∃ a : List G, a.foldr (· * ·) 1 = x ∧ ∀ b ∈ a, b ∈ S},
+  -- this won't be the right definition!
   one_mem := by
     exact ⟨[], by simp⟩,
   mul_mem := by
@@ -141,12 +140,12 @@ notation H " ⊔ " K => mysubgroup_join H K
 /-- The lemma that states that two subgroups are equal if and only if their carriers are equal. -/
 lemma mysubgroup_eq_iff (H K : mysubgroup G) : (H = K) ↔ (H.carrier = K.carrier) := by
   constructor
-  intro h
-  rw [h]
-  intro h
-  cases H
-  cases K
-  congr
+  · intro h
+    rw [h]
+  · intro h
+    cases H
+    cases K
+    congr
 
 
 /-- Proving that join is associative: `(H ⊔ K) ⊔ L = H ⊔ (K ⊔ L)` -/
@@ -186,14 +185,20 @@ lemma join_associative (H K L : mysubgroup G) : ((H ⊔ K) ⊔ L) = (H ⊔ (K �
         right, right, exact h2b } }
   }
 -/
+-- this proof won't work
 
 -- Lemma: If the union of two subgroups is a subgroup, one must be contained within the other.
 -- I wanted to prove this but ran out of time
-lemma union_of_subgroups_is_subgroup_implies_containment (H K : mysubgroup G) (a b : G) :
-((1 ∈ H.carrier ∪ K.carrier)∧(a ∈ H.carrier ∪ K.carrier → a⁻¹ ∈ H.carrier ∪ K.carrier) ∧
-((a ∈ H.carrier ∪ K.carrier ∧ b ∈ H.carrier ∪ K.carrier) → (a * b) ∈ H.carrier ∪ K.carrier))
-→ (H.carrier ⊆ K.carrier ∨ K.carrier ⊆ H.carrier) := by
+lemma union_of_subgroups_is_subgroup_implies_containment (H K : mysubgroup G)
+    (h1 : 1 ∈ H.carrier ∪ K.carrier)
+    (h2 : ∀ a ∈ H.carrier ∪ K.carrier, a⁻¹ ∈ H.carrier ∪ K.carrier)
+    (h3 : ∀ a ∈ H.carrier ∪ K.carrier, ∀ b ∈ H.carrier ∪ K.carrier, a * b ∈ H.carrier ∪ K.carrier) :
+    H.carrier ⊆ K.carrier ∨ K.carrier ⊆ H.carrier := by
   sorry
+
+-- if you have p → q as your goal, you might as well put p as an assumption
+-- and then if you have the ∧ of things as an assumption, you should split them up
+-- your statement was also slightly wrong, you needed to quantify over a and b in the hypotheses
 
 end mygroup
 #lint
