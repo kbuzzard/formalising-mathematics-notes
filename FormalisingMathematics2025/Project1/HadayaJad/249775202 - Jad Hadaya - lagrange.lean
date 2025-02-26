@@ -6,6 +6,10 @@ any of its subgroups
 
 import Mathlib.Tactic -- imports all the tactics
 
+set_option autoImplicit true
+-- in your next project, make sure this is *off* at the beginning of the file
+-- see the announcement
+
 /-
 I will start by creating an instance of a group G and a subgroup H of G
 (When I got to the point of proving that cosets have the same size, I came
@@ -13,8 +17,9 @@ back here to make the group and subgroup finite for simplicity.
 I'm not 100% sure if Fintype is the right way to do it)
 -/
 
-variable (G: Type) [Group G] [Fintype G]
-variable (H: Subgroup G) [Fintype H]
+
+variable (G : Type) [Group G] [Fintype G]
+variable (H : Subgroup G) [Fintype H]
 
 /-
 I will then attempt to define the concept of a coset (I will stick with left
@@ -33,16 +38,14 @@ lemma mem_inter_iff (A : Set R) (B : Set R): x ∈ A ∩ B ↔ x ∈ A ∧ x ∈
 
 -- Another useful lemma about equality of sets
 lemma set_eq_def (X : Type) (A B : Set X) : A = B ↔ ∀ x, x ∈ A ↔ x ∈ B := by
-  aesop
+  rw [Set.ext_iff]
+
 
 -- This simple lemma will prove that any element g of G is in the coset gH of H
 lemma mem_self_coset (g : G) : g ∈ left_Coset G H g := by
   rw [left_Coset, mem_def]
   use 1
-  rw [mul_one]
-  constructor
-  · exact one_mem H
-  · rfl
+  simp [H.one_mem]
 
 
 -- I will then prove a couple of lemmas about equality of cosets
@@ -58,27 +61,23 @@ lemma coset_eq_def1 (x y : G) : left_Coset G H x = left_Coset G H y ↔ y ∈ le
     constructor
     · intro h₂
       rw [left_Coset, mem_def] at h₁ h₂ ⊢
-      cases' h₁ with r₁ h₁
-      cases' h₂ with r₂ h₂
-      cases' h₁ with h₁ h₅
-      cases' h₂ with h₂ h₆
-      rw[← h₅]
+      rcases h₁ with ⟨r₁, h₁, h₅⟩
+      rcases h₂ with ⟨r₂, h₂, h₆⟩
+      rw [← h₅]
       use r₁⁻¹ * r₂
       constructor
       -- Used rw? and exact? to get the two lines below
-      · rw [propext (Subgroup.mul_mem_cancel_right H h₂)]
+      · rw [Subgroup.mul_mem_cancel_right H h₂]
         exact (Subgroup.inv_mem_iff H).mpr h₁
       · rw [mul_assoc, ← mul_assoc r₁, mul_inv_cancel, one_mul, h₆]
     · intro h₂
       rw [left_Coset, mem_def] at h₁ h₂ ⊢
-      cases' h₁ with r h₁
-      cases' h₁ with h₁ h₃
-      cases' h₂ with r₂ h₂
-      cases' h₂ with h₂ h₄
+      rcases h₁ with ⟨r, h₁, h₃⟩
+      rcases h₂ with ⟨r₂, h₂, h₄⟩
       use r * r₂
       constructor
       -- Line below achieved by using exact?
-      · exact (Subgroup.mul_mem_cancel_right H h₂).mpr h₁
+      · exact H.mul_mem h₁ h₂
       · rw [← mul_assoc, h₃, h₄]
 
 
@@ -87,20 +86,18 @@ lemma coset_eq_def2 (x y : G) : left_Coset G H x = left_Coset G H y ↔ x⁻¹ *
   constructor
   · intro h₁
     have h₂ : y ∈ left_Coset G H x := by
-      rw[h₁]
+      rw [h₁]
       exact mem_self_coset G H y
     rw [left_Coset, mem_def] at h₂
-    cases' h₂ with h h₂
-    cases' h₂ with h₂ h₃
+    rcases h₂ with ⟨h, h₂, h₃⟩
     rw [← h₃, ←mul_assoc, inv_mul_cancel, one_mul]
     exact h₂
   · intro h₁
     have h₂ : y ∈ left_Coset G H x := by
       rw [left_Coset, mem_def]
       use x⁻¹ * y
-      constructor
-      · exact h₁
-      · rw [←mul_assoc, mul_inv_cancel, one_mul]
+      refine ⟨h₁, ?_⟩
+      rw [←mul_assoc, mul_inv_cancel, one_mul]
     rw [coset_eq_def1]
     exact h₂
 
@@ -111,11 +108,11 @@ def disjoint (A B : Set G) : Prop := A ∩ B = ∅
 
 -- The first is that cosets are either equal or disjoint
 
-lemma cosets_eq_or_dj (g h : G) : left_Coset G H g = left_Coset G H h ∨ disjoint G (left_Coset G H g) (left_Coset G H h) := by
+lemma cosets_eq_or_dj (g h : G) :
+    left_Coset G H g = left_Coset G H h ∨ disjoint G (left_Coset G H g) (left_Coset G H h) := by
   by_cases h₁ : h ∈ left_Coset G H g
   · left
-    rw [coset_eq_def1]
-    exact h₁
+    rwa [coset_eq_def1]
   · right
     rw [disjoint]
     ext x
@@ -123,20 +120,10 @@ lemma cosets_eq_or_dj (g h : G) : left_Coset G H g = left_Coset G H h ∨ disjoi
     · intro h₂
       rw [mem_inter_iff] at h₂
       cases' h₂ with h₂ h₃
-      rw [left_Coset, mem_def] at h₁ h₂ h₃
-      contrapose! h₁
-      cases' h₂ with r h₂
-      cases' h₃ with r₂ h₃
-      cases' h₂ with h₂ h₄
-      cases' h₃ with h₃ h₅
-      have h₆ : h = x * r₂⁻¹ := by
-        rw [mul_inv_eq_of_eq_mul (id (Eq.symm h₅))]
-      rw [h₆, ← h₄]
-      use r * r₂⁻¹
-      constructor
-      · refine (Subgroup.mul_mem_cancel_right H ?_).mpr h₂
-        exact (Subgroup.inv_mem_iff H).mpr h₃
-      · rw [mul_assoc]
+      -- BM: at this point I can use coset_eq_def1 to finish early
+      rw [← coset_eq_def1] at h₁ h₂ h₃
+      apply h₁
+      rw [h₂, ← h₃]
     · intro h₁
       cases' h₁
 
@@ -147,10 +134,11 @@ lemma cosets_partition : (⋃ g : G, left_Coset G H g) = Set.univ := by
   constructor
   · intro h
     -- I got the following line using exact? but I'm not sure if it's correct
+    -- BM: it's correct because Lean accepts it!
     exact Set.mem_univ x
   · intro h
     -- I also got the line below using rw?
-    rw [@Set.mem_iUnion]
+    rw [Set.mem_iUnion]
     use x
     exact mem_self_coset G H x
 

@@ -19,10 +19,12 @@ This file provides a formalization of a naive proof of Rolle's Theorem.
 - `ConstantFunction`: A function that takes equal values at every point in a given interval.
 - `FermatesTheorem`: The formalization of Fermat's theorem.
 - `isLocalMaximum` and `isLocalMinimum`: Definitions of local extrema in a closed interval.
-- `ContinousOnClosedIntervalImpliesMaxExists` and `ContinousOnClosedIntervalImpliesMinExists`: Statements that ensure the existence of extrema in a continuous function over a closed interval.
+- `ContinousOnClosedIntervalImpliesMaxExists` and `ContinousOnClosedIntervalImpliesMinExists`:
+  Statements that ensure the existence of extrema in a continuous function over a closed interval.
 
 ## Dependencies
-- Uses standard results from Lean's `Mathlib.Analysis.Calculus.Deriv.Basic` and `Mathlib.Topology.ContinuousOn`.
+- Uses standard results from Lean's `Mathlib.Analysis.Calculus.Deriv.Basic` and
+  `Mathlib.Topology.ContinuousOn`.
 - Relies on the concept of compactness for proving extrema existence.
 
 -/
@@ -33,14 +35,25 @@ This follows from the compactness of `[a, b]`.
 -/
 theorem continuous_max_exists {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
     (h_cont : ContinuousOn f (Icc a b)) :
-    ∃ c : Icc a b, ∀ x ∈ Icc a b, f c >= f x := by
+    ∃ c : Icc a b, ∀ x ∈ Icc a b, f c ≥ f x := by -- we have nice unicode in Lean, use it!
   -- Proof `[a,b]` is compact
-  have h_compact : IsCompact (Icc a b) := by exact isCompact_Icc
-  obtain ⟨c, hc, h_max⟩ := h_compact.exists_isMaxOn (nonempty_Icc.2 hab.le) h_cont
+  have h_compact : IsCompact (Icc a b) := isCompact_Icc -- by exact cancel each other
+  obtain ⟨c, hc, h_max⟩ := h_compact.exists_isMaxOn (nonempty_Icc.2 hab.le) h_cont -- nice
+  -- you could condense this even more, if you want:
+  -- obtain ⟨c, hc, h_max⟩ := isCompact_Icc.exists_isMaxOn (nonempty_Icc.2 hab.le) h_cont
   use ⟨c, hc⟩
   intro x hx
   exact h_max hx
+  -- notice you didn't use a < b, only that a ≤ b
+  -- also, note the output of this theorem is
+  --     ∃ c : Icc a b, ∀ x ∈ Icc a b, f c ≥ f x
+  -- which is technically different from
+  --     ∃ c ∈ Icc a b, ∀ x ∈ Icc a b, f c ≥ f x
+  -- You'll probably have found this a tiny bit easier if you used the latter
+  -- They're mathematically the same, but the first one makes an element of a subtype, whereas the
+  -- second makes an element of the reals and shows it's in a specific subset
 
+-- nice docstring
 /--
 A continuous function on a closed interval `[a, b]` attains a **minimum** at some `c ∈ [a, b]`.
 This follows from the compactness of `[a, b]`.
@@ -54,12 +67,19 @@ theorem continuous_min_exists {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
   use ⟨c, hc⟩
   intro x hx
   exact h_min hx
+  -- could do this by consiering -f, like we discussed
 
 /--
 A function `f` has a **local maximum** at `c ∈ (a, b)` if `f(x) ≤ f(c)` for all `x ∈ [a, b]`.
 -/
 def isLocalMaximum (f : ℝ → ℝ) (a b : ℝ) (c : Ioo a b): Prop := ∀ x ∈ Icc a b, f x <= f c
 
+-- I like your attempts to follow the naming conventions; although you didn't quite land it
+-- (you didn't lose marks for that; actually you got a few bonus marks for the nice attempt)
+-- https://leanprover-community.github.io/contribute/naming.html
+-- rule 2 would say isLocalMaximum should be IsLocalMaximum
+-- then rule 5 says this theorem should be isLocalMaximum_def
+-- rule 2 also says fermats_theorem should be FermatsTheorem (cf FermatLastTheorem in mathlib)
 theorem islocalmaximum_def {f : ℝ → ℝ} {a b : ℝ} (c : Ioo a b) :
     isLocalMaximum f a b c ↔ ∀ x ∈ Icc a b, f x <= f c := by
   rfl
@@ -85,7 +105,8 @@ def fermats_theorem (f : ℝ → ℝ) {a b: ℝ} (c : Ioo a b) : Prop :=
   (isLocalMaximum f a b c ∨ isLocalMinimum f a b c) → deriv f c = 0
 
 /--
-If a function `f` has a local maximum or minimum at `c`, then `f' c = 0`. This proves Fermat's Theorem.
+If a function `f` has a local maximum or minimum at `c`, then `f' c = 0`. This proves Fermat's
+Theorem.
 -/
 theorem proof_of_fermatsTheorem {f : ℝ → ℝ} {a b: ℝ} (c : Ioo a b) :
     fermats_theorem f c := by
@@ -94,9 +115,7 @@ theorem proof_of_fermatsTheorem {f : ℝ → ℝ} {a b: ℝ} (c : Ioo a b) :
   rcases h_extremum with hLocalMaximum | hLocalMinimum
   -- Proof of isLocalMaximum is equvilent to IsLocalMax
   · have hLocalMax : IsLocalMax f c := by
-      rw [IsLocalMax]
-      rw [IsMaxFilter]
-      rw [eventually_nhds_iff]
+      rw [IsLocalMax, IsMaxFilter, eventually_nhds_iff]
       -- Prove Ioo a b is a valid interval for c to be a local maximum
       use (Ioo a b)
       constructor
@@ -154,9 +173,7 @@ theorem deriv_eq_zero_of_const_midpoint (f : ℝ → ℝ) (a b : ℝ)
   -- All local maximums on continous functions have 0 derivatives
   refine IsLocalMax.deriv_eq_zero ?_
   -- Convert isLocalMaximum to IsLocalMax
-  rw [IsLocalMax]
-  rw [IsMaxFilter]
-  rw [eventually_nhds_iff]
+  rw [IsLocalMax, IsMaxFilter, eventually_nhds_iff]
   use (Ioo a b)
   constructor
   · intro y hy
@@ -172,7 +189,7 @@ theorem deriv_eq_zero_of_const_midpoint (f : ℝ → ℝ) (a b : ℝ)
 If `f` has both its maximum and minimum at endpoints of `[a, b]`, then `f` is constant on `[a, b]`.
 -/
 theorem constant_if_extrema_at_endpoints {f : ℝ → ℝ} {a b: ℝ} (max_pos min_pos : Icc a b)
-    (h_max_ge_all : ∀ x : Icc a b, f max_pos >= f x) (h_min_le_all : ∀ x : Icc a b, f min_pos <= f x)
+    (h_max_ge_all : ∀ x : Icc a b, f max_pos ≥ f x) (h_min_le_all : ∀ x : Icc a b, f min_pos <= f x)
     (h_eq_endpoints : f a = f b)
     (h_max_at_endpoints : max_pos = a ∨ max_pos = b)
     (h_min_at_endpoints : min_pos = a ∨ min_pos = b) :
@@ -181,32 +198,22 @@ theorem constant_if_extrema_at_endpoints {f : ℝ → ℝ} {a b: ℝ} (max_pos m
   intro x y
   -- Goes through all the cases of where the min and max can lie
   have h_max_eq_min : f max_pos = f min_pos := by
-    rcases h_max_at_endpoints with h_max_endpoint|h_max_endpoint
-    · rcases h_min_at_endpoints with h_min_endpoint|h_min_endpoint
-      · rw [h_max_endpoint]
-        rw [h_min_endpoint]
-      · rw [h_max_endpoint]
-        rw [h_min_endpoint]
-        exact h_eq_endpoints
-    · rcases h_min_at_endpoints with h_min_endpoint|h_min_endpoint
-      · rw [h_max_endpoint]
-        rw [h_min_endpoint]
-        exact id (Eq.symm h_eq_endpoints)
-      · rw [h_max_endpoint]
-        rw [h_min_endpoint]
+    rcases h_max_at_endpoints with h_max_endpoint | h_max_endpoint
+    · rcases h_min_at_endpoints with h_min_endpoint | h_min_endpoint <;>
+      simp_all
+    · rcases h_min_at_endpoints with h_min_endpoint | h_min_endpoint <;>
+      simp_all
   -- Proof x equals the max value
   have h_x_eq_max : f x = f max_pos := by
     apply le_antisymm
-    · specialize h_max_ge_all  x
-      apply h_max_ge_all
+    · exact h_max_ge_all x
     · specialize h_min_le_all x
       rw [h_max_eq_min]
       apply h_min_le_all
   -- Proof x equals the min value
   have h_y_eq_max : f y = f max_pos := by
     apply le_antisymm
-    · specialize h_max_ge_all y
-      apply h_max_ge_all
+    · exact h_max_ge_all y
     · specialize h_min_le_all y
       rw [h_max_eq_min]
       apply h_min_le_all
@@ -219,10 +226,8 @@ This follows directly from Fermat's theorem.
 -/
 theorem deriv_at_local_max (f : ℝ → ℝ) (a b : ℝ) (c : Ioo a b) (hMax : isLocalMaximum f a b c) :
     deriv f c = 0 := by
-  have fermate_conditions : (isLocalMaximum f a b c) ∨ (isLocalMinimum f a b c) := by
-    left
-    exact hMax
-  exact (proof_of_fermatsTheorem c) fermate_conditions
+  have fermate_conditions : (isLocalMaximum f a b c) ∨ (isLocalMinimum f a b c) := Or.inl hMax
+  exact proof_of_fermatsTheorem c fermate_conditions
 
 /--
 If a function `f` has a local minimum at `c ∈ (a, b)`, then its derivative at `c` is zero.
@@ -230,10 +235,8 @@ This is a direct application of Fermat's theorem.
 -/
 theorem deriv_at_local_min (f : ℝ → ℝ) (a b : ℝ) (c : Ioo a b) (hMin : isLocalMinimum f a b c) :
     deriv f c = 0 := by
-  have fermate_conditions : (isLocalMaximum f a b c) ∨ (isLocalMinimum f a b c) := by
-    right
-    exact hMin
-  exact (proof_of_fermatsTheorem c) fermate_conditions
+  have fermate_conditions : (isLocalMaximum f a b c) ∨ (isLocalMinimum f a b c) := Or.inr hMin
+  exact proof_of_fermatsTheorem c fermate_conditions
 
 /--
 Rolle’s Theorem: If `f` is continuous on `[a, b]`, differentiable on `(a, b)`, and `f(a) = f(b)`,
@@ -246,9 +249,7 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
   obtain ⟨⟨c_max, h_max_in_interval⟩, hc⟩ := continuous_max_exists hab h_cont
   -- Case 1 : Interiour Maximum
   by_cases h_max_interior : a < c_max ∧ b > c_max
-  · have isMax : isLocalMaximum f a b ⟨c_max, by exact h_max_interior⟩  := by
-      rw [isLocalMaximum]
-      exact hc
+  · have isMax : isLocalMaximum f a b ⟨c_max, by exact h_max_interior⟩ := by rwa [isLocalMaximum]
     use c_max
     constructor
     · exact h_max_interior
@@ -258,9 +259,7 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
   obtain ⟨⟨c_min, h_min_in_interval⟩, hm⟩ := continuous_min_exists hab h_cont
   -- Case 2 : Interiour Minimum
   by_cases h_min_interior : a < c_min ∧ b > c_min
-  · have isMin : isLocalMinimum f a b ⟨c_min, by exact h_min_interior⟩  := by
-      rw [isLocalMinimum]
-      exact hm
+  · have isMin : isLocalMinimum f a b ⟨c_min, by exact h_min_interior⟩ := by rwa [isLocalMinimum]
     use c_min
     constructor
     · exact h_min_interior
@@ -269,7 +268,7 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
   -- Proof the maximum must lie at a or b
   have maxPosLocations : a = c_max ∨ b = c_max := by
     rw [not_and_or] at h_max_interior
-    simp at h_max_interior
+    simp only [not_lt, gt_iff_lt] at h_max_interior
     -- max is either at a or b
     rcases h_max_interior with max_at_a|max_at_b
     · left
@@ -286,7 +285,7 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
   -- Proof the minimum must lie at a or b
   have minPosLocations : a = c_min ∨ b = c_min := by
     rw [not_and_or] at h_min_interior
-    simp at h_min_interior
+    simp only [not_lt, gt_iff_lt] at h_min_interior
     -- min is either at a or b
     rcases h_min_interior with min_at_a|min_at_b
     · left
@@ -304,37 +303,10 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
   -- Thus f must be a constant function since f a = f b
   have h_f_constant : ConstantFunction f a b := by
     -- Go through all the cases of min and max assignment
-    rcases minPosLocations with n|n
-    · rcases maxPosLocations with m|m
-      · have h_temp_one : c_max = a ∨ c_max = b := by
-          left
-          exact id (Eq.symm m)
-        have h_temp_two : c_min = a ∨ c_min = b := by
-          left
-          exact id (Eq.symm n)
-        exact constant_if_extrema_at_endpoints ⟨c_max, h_max_in_interval⟩ ⟨c_min, h_min_in_interval⟩ (λ x ↦ hc x x.2) (λ x ↦ hm x x.2) heq (h_temp_one) (h_temp_two)
-      · have h_temp_one : c_max = a ∨ c_max = b := by
-          right
-          exact id (Eq.symm m)
-        have h_temp_two : c_min = a ∨ c_min = b := by
-          left
-          exact id (Eq.symm n)
-        exact constant_if_extrema_at_endpoints ⟨c_max, h_max_in_interval⟩ ⟨c_min, h_min_in_interval⟩ (λ x ↦ hc x x.2) (λ x ↦ hm x x.2) heq (h_temp_one) (h_temp_two)
-    · rcases maxPosLocations with m|m
-      · have h_temp_one : c_max = a ∨ c_max = b := by
-          left
-          exact id (Eq.symm m)
-        have h_temp_two : c_min = a ∨ c_min = b := by
-          right
-          exact id (Eq.symm n)
-        exact constant_if_extrema_at_endpoints ⟨c_max, h_max_in_interval⟩ ⟨c_min, h_min_in_interval⟩ (λ x ↦ hc x x.2) (λ x ↦ hm x x.2) heq (h_temp_one) (h_temp_two)
-      · have h_temp_one : c_max = a ∨ c_max = b := by
-          right
-          exact id (Eq.symm m)
-        have h_temp_two : c_min = a ∨ c_min = b := by
-          right
-          exact id (Eq.symm n)
-        exact constant_if_extrema_at_endpoints ⟨c_max, h_max_in_interval⟩ ⟨c_min, h_min_in_interval⟩ (λ x ↦ hc x x.2) (λ x ↦ hm x x.2) heq (h_temp_one) (h_temp_two)
+    rcases minPosLocations with n | n <;>
+    rcases maxPosLocations with m | m <;>
+    exact constant_if_extrema_at_endpoints ⟨c_max, h_max_in_interval⟩
+      ⟨c_min, h_min_in_interval⟩ (λ x ↦ hc x x.2) (λ x ↦ hm x x.2) heq (by aesop) (by aesop)
 
   -- Proof derivative at midpoint is 0
   use (a + (b - a) / 2)
@@ -344,10 +316,10 @@ theorem rolles_theorem {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) (h_cont : Con
     · exact hab
     · linarith
   -- Proof midpoint is in the open set (a,b)
-  · have middle_is_in_set : (a + (b - a) / 2) ∈ (Ioo a b) := by
+  · have middle_is_in_set : a + (b - a) / 2 ∈ Ioo a b := by
       norm_num
       constructor
       · exact hab
       · linarith
   -- Proof derivative at midpoint is 0
-    exact (deriv_eq_zero_of_const_midpoint f a b h_f_constant middle_is_in_set)
+    exact deriv_eq_zero_of_const_midpoint f a b h_f_constant middle_is_in_set

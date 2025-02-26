@@ -26,7 +26,7 @@ open Set
 
 /-- The left coset gH of the subgroup H of G -/
 def Group.coset {G : Type} [Group G] (H : Subgroup G) (g : G) : Set G :=
-{x : G | ∃ h ∈ H, x = g * h}
+  {x : G | ∃ h ∈ H, x = g * h}
 
 namespace Group
 
@@ -36,7 +36,7 @@ lemma mem_coset_iff : x ∈ coset H g ↔ ∃ h ∈ H, x = g * h := by
   rfl
 
 lemma x_mem_xH (H : Subgroup G): x ∈ coset H x := by
-  rw [@mem_coset_iff]
+  rw [mem_coset_iff]
   use 1
   aesop
 
@@ -45,21 +45,16 @@ example (h1 : g ∈ H) : coset H g = H := by
   rw [mem_coset_iff]
   constructor
   · intro h2
-    cases' h2 with y h3
-    cases' h3 with hy h_x_is_gy
+    rcases h2 with ⟨y, hy, h_x_is_gy⟩
     have hx : x ∈ H := by
-      rw [h_x_is_gy]
-      rw [Subgroup.mul_mem_cancel_left H h1]
-      exact hy
+      rwa [h_x_is_gy, Subgroup.mul_mem_cancel_left H h1]
+      -- make sure you understand what I did here!
     exact hx
   · intro hx
-    have hg : g⁻¹ ∈ H := by
-      rw [inv_mem_iff]
-      exact h1
+    have hg : g⁻¹ ∈ H := by rwa [inv_mem_iff]
     use (g⁻¹ * x)
     constructor
-    · rw [Subgroup.mul_mem_cancel_left H hg]
-      exact hx
+    · rwa [Subgroup.mul_mem_cancel_left H hg]
     · rw [mul_inv_cancel_left]
 
 
@@ -68,14 +63,18 @@ lemma coset_subset_if_not_disjoint (g₁ g₂ : G) (H : Subgroup G)
    (h_not_disjoint : coset H g₁ ∩ coset H g₂ ≠ ∅) :
     coset H g₁ ⊆ coset H g₂ := by
   rw [subset_def]
-  rw [@Mathlib.Tactic.PushNeg.ne_empty_eq_nonempty] at h_not_disjoint
+  -- lemmas with Tactic in their name like this aren't *meant* to be used
+  -- but technically this is rw?'s fault for telling you about it, not yours
+  -- rw [@Mathlib.Tactic.PushNeg.ne_empty_eq_nonempty] at h_not_disjoint
+  rw [← Set.nonempty_iff_ne_empty] at h_not_disjoint
 
   -- We want to consider an arbitary x in the non-empty intersection
-  have hx : ∃ x, x ∈ coset H g₁ ∧ x ∈ coset H g₂ := by
-    exact h_not_disjoint
-  cases' hx with x hx
+  have hx : ∃ x, x ∈ coset H g₁ ∧ x ∈ coset H g₂ := h_not_disjoint
   -- We will want to use the facts that x ∈ g₁H and x ∈ g₂H separately, so lets break up hx.
-  cases' hx with h_x_mem_g₁H h_x_mem_g₂H
+  -- Very sensible, but you can do that all at once
+  rcases hx with ⟨x, h_x_mem_g₁H, h_x_mem_g₂H⟩
+  -- in fact I can also combine the last two lines:
+  -- have ⟨x, h_x_mem_g₁H, h_x_mem_g₂H⟩ : ∃ x, x ∈ coset H g₁ ∧ x ∈ coset H g₂ := h_not_disjoint
 
   -- The next step is to write x = g₁ * h₁ and x = g₂ * h₂ for some g₁, g₂ ∈ G, h₁, h₂ ∈ H.
   have h_x_eq_g₁h₁ : ∃ (h₁ : G), h₁ ∈ H ∧ x = g₁ * h₁ := by
@@ -90,8 +89,10 @@ lemma coset_subset_if_not_disjoint (g₁ g₂ : G) (H : Subgroup G)
     use h₂
 
   -- We want break down the ∃ h₁ and ∃ h₂ so that we can access them
-  cases' h_x_eq_g₁h₁ with h₁ h_x_eq_g₁h₁
-  cases' h_x_eq_g₁h₁ with h_h₁_mem_H h_x_eq_g₁h₁
+  rcases h_x_eq_g₁h₁ with ⟨h₁, h_h₁_mem_H, h_x_eq_g₁h₁⟩
+  -- BM: these combine!!
+  -- same thing above and below
+  -- rcases means recursive cases
 
   cases' h_x_eq_g₂h₂ with h₂ h_x_eq_g₂h₂
   cases' h_x_eq_g₂h₂ with h_h₂_mem_H h_x_eq_g₂h₂
@@ -118,10 +119,11 @@ lemma coset_subset_if_not_disjoint (g₁ g₂ : G) (H : Subgroup G)
   have h_g₁k_in_g₂H (k : G): k ∈ H → g₁ * k ∈ coset H g₂ := by
     intro h_k_mem_H
     have h : h₂ * h₁⁻¹ * k ∈ H := by
-      rw [Subgroup.mul_mem_cancel_right H h_k_mem_H]
-      rw [Subgroup.mul_mem_cancel_left H h_h₂_mem_H]
-      simp
+      rw [Subgroup.mul_mem_cancel_right H h_k_mem_H, Subgroup.mul_mem_cancel_left H h_h₂_mem_H]
+      simp -- nonterminal simp
       exact h_h₁_mem_H
+      -- in this case you could have fixed it with simpa
+      -- but in general simp? will tell you what to replace it with
 
     have h_exists_k' : ∃ k' ∈ H, g₁ * k = g₂ * k' := by
       use (h₂ * h₁⁻¹ * k)
@@ -154,8 +156,8 @@ lemma coset_subset_if_not_disjoint (g₁ g₂ : G) (H : Subgroup G)
   exact h_k_mem_H
 
 /-- Given a group G and subgroup H, if g₁H ∩ g₂H ≠ ∅, then g₁H = g₁H. -/
-theorem not_disjoint_implies_equal (g₁ g₂: G) (H : Subgroup G)
-    : coset H g₁ ∩ coset H g₂ ≠ ∅ → coset H g₁ = coset H g₂ := by
+theorem not_disjoint_implies_equal (g₁ g₂: G) (H : Subgroup G) :
+    coset H g₁ ∩ coset H g₂ ≠ ∅ → coset H g₁ = coset H g₂ := by
   intro h_not_disjoint
   -- We split up the '=' into two subset statements as always
   rw [Subset.antisymm_iff]
@@ -173,6 +175,7 @@ theorem cosets_partition_group : IsPartition {S : Set G | ∃ g, S = coset H g} 
    2) ∀ x ∈ G, ∃! S ∈ {gH : g ∈ G}, x ∈ S
   -/
   -- I will first prove 1
+  -- good comments
   have emptyset_not_mem : ∅ ∉ {S : Set G | ∃ g, S = coset H g} := by
     simp only [mem_setOf_eq, not_exists]
     intro x

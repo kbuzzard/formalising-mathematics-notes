@@ -23,7 +23,7 @@ we have `|f(x) - L| < ε`.
 -/
 
 def limit (f : ℝ → ℝ) (L c : ℝ) : Prop :=
-  ∀ ε > 0, ∃ δ > 0, ∀ x, 0 < |x - c| ∧ |x - c| < δ → |f x - L| < ε
+  ∀ ε > 0, ∃ δ > 0, ∀ x, 0 < |x - c| → |x - c| < δ → |f x - L| < ε
 
 /--
 # The definition of a left limit
@@ -32,7 +32,7 @@ if for every `ε > 0`, there exists a `δ > 0` such that for all `x` satisfying
 `c - δ < x < c`, we have `|f(x) - L| < ε`.
 -/
 def left_limit (f : ℝ → ℝ) (L c : ℝ) : Prop :=
-  ∀ ε > 0, ∃ δ > 0, ∀ x, c - δ < x ∧ x < c → |f x - L| < ε
+  ∀ ε > 0, ∃ δ > 0, ∀ x, c - δ < x → x < c → |f x - L| < ε
 
 /--
 # The definition of a right limit
@@ -41,7 +41,7 @@ if for every `ε > 0`, there exists a `δ > 0` such that for all `x` satisfying
 `c < x < c + δ`, we have `|f(x) - L| < ε`.
 -/
 def right_limit (f : ℝ → ℝ) (L c : ℝ) : Prop :=
-  ∀ ε > 0, ∃ δ > 0, ∀ x, c < x ∧ x < c + δ → |f x - L| < ε
+  ∀ ε > 0, ∃ δ > 0, ∀ x, c < x → x < c + δ → |f x - L| < ε
 
 /--
 # The definitions of the types of continutity
@@ -70,7 +70,7 @@ A function `f` is continuous on an open interval `(a, b)`
 if it is continuous at every point `c` in `(a, b)`.
 -/
 def continuous_on_open_interval (f : ℝ → ℝ) (a b : ℝ) : Prop :=
-  ∀ c : ℝ, a < c ∧ c < b → continuous_at f c
+  ∀ c : ℝ, a < c → c < b → continuous_at f c
 
 /--
 A function `f` is continuous on a closed interval `[a, b]`
@@ -117,9 +117,9 @@ theorem continuous_of_constant (k : ℝ) : continuous (fun x => k) := by
   constructor
   · linarith -- Automatically proves δ > 0 since δ = 1 is positive.
   -- Prove the second part of the ε-δ definition.
-  · intro y hy -- Assume a point `y` satisfies |y - c| < δ.
-    simp -- Simplify the goal, as the function is constant (|k - k| = 0).
-    exact hε -- Since ε > 0 was given, the condition is trivially satisfied.
+  · -- Assume a point `y` satisfies |y - c| < δ.
+    simp [hε] -- Simplify the goal, as the function is constant (|k - k| = 0).
+    -- Since ε > 0 was given, the condition is trivially satisfied.
 
 /--
 # Helper lemma 1
@@ -128,11 +128,10 @@ is both left-continuous and right-continuous at a point `c`,
 then `f` is continuous at `c`.
 -/
 
-lemma continuous_at_of_left_and_right_continuous {f : ℝ → ℝ} {c : ℝ} :
-  left_continuous_at f c ∧ right_continuous_at f c → continuous_at f c := by
-  intro h
+lemma continuous_at_of_left_and_right_continuous {f : ℝ → ℝ} {c : ℝ}
+    (h_left : left_continuous_at f c) (h_right : right_continuous_at f c) :
+    continuous_at f c := by
   -- Split the conjunction into left- and right-continuity assumptions
-  cases' h with h_left h_right
   -- Rewrite the definition of `continuous_at` and `limit`
   rw [continuous_at, limit]
   intro ε hε
@@ -148,25 +147,19 @@ lemma continuous_at_of_left_and_right_continuous {f : ℝ → ℝ} {c : ℝ} :
   constructor
   · exact hδ -- Prove δ > 0
   · -- Prove the continuity condition
-    intros x hx
-    rw [abs_lt] at hx
-    cases' hx with h_left_bound h_right_bound
+    intros x h_left_bound h_right_bound
+    rw [abs_lt] at h_right_bound
     by_cases h_case : x < c
     · -- Case: x < c, use left-continuity
-      apply h_left_cond
-      constructor
-      · have : δ ≤ δ₁ := min_le_left δ₁ δ₂
-        linarith -- Prove c - δ < x
-      · exact h_case -- Prove x < c
+      apply h_left_cond _ _ h_case
+      have : δ ≤ δ₁ := min_le_left δ₁ δ₂
+      linarith -- Prove c - δ < x
     · -- Case: x ≥ c, use right-continuity
       apply h_right_cond
-      constructor
       · -- Prove c < x
-        have h_geq : c ≤ x := not_lt.mp h_case
-        have h_neq : c ≠ x := by
-          aesop
-        have h_gt : c < x := lt_of_le_of_ne h_geq h_neq
-        exact h_gt
+        have h_geq : c ≤ x := le_of_not_lt h_case
+        have h_neq : c ≠ x := by aesop
+        exact lt_of_le_of_ne h_geq h_neq
       · -- Prove x < c + δ
         have : δ ≤ δ₂ := min_le_right δ₁ δ₂
         linarith
@@ -178,7 +171,7 @@ then it is both left-continuous and right-continuous at `c`.
 -/
 
 lemma continuous_at_implies_left_and_right_continuous (f : ℝ → ℝ) (c : ℝ) :
-  continuous_at f c → left_continuous_at f c ∧ right_continuous_at f c := by
+    continuous_at f c → left_continuous_at f c ∧ right_continuous_at f c := by
   -- Assume `f` is continuous at `c`
   intro h_cont
   -- Split the goal into proving left- and right-continuity
@@ -193,18 +186,16 @@ lemma continuous_at_implies_left_and_right_continuous (f : ℝ → ℝ) (c : ℝ
     · -- Prove δ > 0
       exact hδ
     · -- Prove the left-continuity condition
-      intro x hx -- Assume `x` is in the left-neighborhood of `c`, i.e., `c - δ < x < c`
+      intro x hx hx' -- Assume `x` is in the left-neighborhood of `c`, i.e., `c - δ < x < c`
       -- Apply the global continuity condition
       apply h
-      constructor
       · -- Prove `0 < |x - c|`
         rw [abs_pos]
         linarith
       · -- Prove `|x - c| < δ`
         rw [abs_lt]
-        constructor
-        · linarith -- Prove `x - c > -δ`
-        · linarith -- Prove `x - c < δ`
+        constructor <;>
+        linarith
   · -- Prove right-continuity at `c`
     intro ε hε -- Assume ε > 0
     -- Since `f` is continuous at `c`, obtain δ > 0 such that the global continuity condition holds
@@ -215,18 +206,16 @@ lemma continuous_at_implies_left_and_right_continuous (f : ℝ → ℝ) (c : ℝ
     · -- Prove δ > 0
       exact hδ
     · -- Prove the right-continuity condition
-      intro x hx -- Assume `x` is in the right-neighborhood of `c`, i.e., `c < x < c + δ`
+      intro x hx hx' -- Assume `x` is in the right-neighborhood of `c`, i.e., `c < x < c + δ`
       -- Apply the global continuity condition
       apply h
-      constructor
       · -- Prove `0 < |x - c|`
         rw [abs_pos]
         linarith
       · -- Prove `|x - c| < δ`
         rw [abs_lt]
-        constructor
-        · linarith -- Prove `x - c > -δ`
-        · linarith -- Prove `x - c < δ`
+        constructor <;>
+        linarith -- Prove `x - c > -δ` and prove `x - c < δ`
 
 /--
 # The main theorem
@@ -235,12 +224,6 @@ it is both left-continuous and right-continuous at `c`.
 -/
 
 theorem continuous_at_iff_left_and_right_continuous (f : ℝ → ℝ) (c : ℝ) :
-  continuous_at f c ↔ left_continuous_at f c ∧ right_continuous_at f c := by
-  constructor
-  · -- (⇒) If `f` is continuous at `c`, then it is left- and right-continuous
-    apply continuous_at_implies_left_and_right_continuous
-  · -- (⇐) If `f` is left- and right-continuous at `c`, then it is continuous at `c`
-    intro h
-    exact continuous_at_of_left_and_right_continuous h
-
-#lint
+    continuous_at f c ↔ left_continuous_at f c ∧ right_continuous_at f c :=
+  ⟨continuous_at_implies_left_and_right_continuous f c,
+    fun h ↦ continuous_at_of_left_and_right_continuous h.1 h.2⟩

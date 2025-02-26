@@ -52,8 +52,8 @@ def ind (s : ℕ → ℝ) (n : ℕ) (k : ℕ) : ℝ :=
 
 example
   -- assume partial order without loss of generality
-  (h_non_inc : ∀ x, s x ≥ s (x + 1))
-  : ∑ k in range (n-1), ind s n k = ∑ k in range n, ind s n k := by
+    (h_non_inc : ∀ x, s x ≥ s (x + 1)) :
+    ∑ k in range (n-1), ind s n k = ∑ k in range n, ind s n k := by
   -- induction example from Section 8 Sheet 1
   induction' n with d hd
   · rfl
@@ -95,10 +95,9 @@ variable
 ⌈(n+1)(1-α)⌉ ≤ n+1
 -/
 
-lemma
-  α_mul_n_lt_n
-  (α_le_1 : α < 1)
-  : Nat.ceil (α * n) ≤ n := by
+lemma α_mul_n_lt_n
+    (α_le_1 : α < 1) :
+    Nat.ceil (α * n) ≤ n := by
   rw [Nat.ceil_le]
   apply mul_le_of_le_one_of_le_of_nonneg -- thanks Bhavik Mehta
   · exact le_of_lt α_le_1 -- via `exact?`
@@ -128,8 +127,8 @@ variable
 
   -- family {Xᵢ : i ∈ ℝ} of i.i.d. real-valued random variables
   {X : ℝ → Ω → ℝ}
-  (h_meas : Measurable (X i))
-  (h_ident : IdentDistrib (X i) (X j))
+  (h_meas : Measurable (X i)) -- BM: this one should probably be ∀ i, ...?
+  (h_ident : IdentDistrib (X i) (X j)) -- same
   (h_indep : ∀ i ≠ j, IndepFun (X i) (X j))
 
 #check pdf (X 0) P (P.map (X 10)) 0

@@ -54,15 +54,13 @@ lemma orb_iff_same_orb (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G 
 making use of orb_iff_same_orb and id_orb_mem, the lemma is easy to prove-/
 lemma orb_intersect_iff_same_orb
     (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G X] (x1 x2 : X) :
-    (∃ x: X, x ∈ (Orbit G x1) ∩ (Orbit G x2)) ↔ Orbit G x1 = Orbit G x2 := by
+    (∃ x : X, x ∈ Orbit G x1 ∩ Orbit G x2) ↔ Orbit G x1 = Orbit G x2 := by
   rw [orb_iff_same_orb]
   constructor
   · intro hinter
-    obtain ⟨x, ⟨hx1, hx2⟩⟩ := hinter
-    apply (orb_iff_same_orb G x1 x2).mp
-    apply (orb_iff_same_orb G x1 x).mpr at hx1
-    apply (orb_iff_same_orb G x2 x).mpr at hx2
-    rw[hx1, hx2]
+    obtain ⟨x, hx1, hx2⟩ := hinter
+    rw [← orb_iff_same_orb] at hx1 hx2 ⊢
+    rw [hx1, hx2]
   · intro hx1
     use x2
     exact Set.mem_inter hx1 (id_orb_mem G x2)
@@ -77,18 +75,18 @@ def Stabilizer (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G X] (x : 
   carrier := {g : G | g • x = x}
   one_mem' := by
     --show that 1 ∈ G is in the Stabilizer since 1 • x = x by property of an action.
-    rw [@Set.mem_setOf]
+    rw [Set.mem_setOf]
     exact MulAction.one_smul x
   inv_mem' := by
     --show that g⁻¹ ∈ G is in the Stabilizer since x = 1 • x = g⁻¹ • (g • x) = g⁻¹ • x
     intro g'
-    rw [@Set.mem_setOf]
+    rw [Set.mem_setOf]
     intro h
-    rw [@Set.mem_setOf]
+    rw [Set.mem_setOf]
     have h1 : (g'⁻¹ * g') • x = g'⁻¹ • x := by
       rw [mul_smul, h]
     rw [inv_mul_cancel g', one_smul] at h1
-    exact Eq.symm h1
+    exact h1.symm
   mul_mem' := by
     --again by property of action
     dsimp
@@ -109,25 +107,26 @@ noncomputable def osqe_toFun
     (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G X] (x : X) :
     /- y.2 is the proof of y.1 being a member of orbit, and .choose is using
     the axiom of choice to pick the element g ∈ G so that g • x = x-/
-    Orbit G x → G := fun y ↦ y.2.choose
+    Orbit G x → G :=
+  fun y ↦ y.2.choose
 
 -- Kevin proved this
 theorem osqe_toFun_spec (G : Type) [Group G] {X : Type} [Fintype X]
-    [MulAction G X] (x : X) (y : Orbit G x)  : (osqe_toFun G x y) • x = y :=
+    [MulAction G X] (x : X) (y : Orbit G x) : osqe_toFun G x y • x = y :=
   -- .choose_spec gives a proof that the chosen element indeed satisfy the condition
   y.2.choose_spec
 
 noncomputable def osqe_invFun
     (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G X] (x : X) :
-    G⧸(Stabilizer G x) → Orbit G x :=
+    G ⧸ Stabilizer G x → Orbit G x :=
   -- similar to y.2, ⟨g, rfl⟩ is a proof for g • x to be an Orbit of x
   Quotient.lift (fun g ↦ ⟨g • x, ⟨g, rfl⟩⟩) <| by
   intro g₁ g₂ h
   -- property of (cosets?) : aH = bH ↔ a⁻¹ * b  ∈ H ≤ G
   apply QuotientGroup.leftRel_apply.mp at h
-  simp
-  simp at h
-  rw[@mul_smul, @inv_smul_eq_iff] at h
+  simp only [Subtype.mk.injEq] -- these are nonterminal simps!
+  simp only [stab_def] at h
+  rw[mul_smul, inv_smul_eq_iff] at h
   exact id (Eq.symm h)
 
 /- We need osqe_invFun_spec (as well as the osqe_toFun_spec above) so that we may "extract"
@@ -150,28 +149,20 @@ noncomputable def orbit_stabilizer_quot_equiv
   invFun := osqe_invFun G x
   left_inv := by
     intro y
-    simp
     rw [osqe_invFun_spec]
     ext
     dsimp
     rw [osqe_toFun_spec]
   right_inv q := by
     obtain ⟨g, rfl⟩ := QuotientGroup.mk_surjective q
-    simp
-    rw [@QuotientGroup.eq]
-    simp
-    rw [@mul_smul]
-    rw [osqe_invFun_spec]
-    rw [@inv_smul_eq_iff]
-    rw [osqe_toFun_spec]
+    rw [QuotientGroup.eq, stab_def, mul_smul, osqe_invFun_spec, inv_smul_eq_iff, osqe_toFun_spec]
 
 /- Finally, by proving that G⧸(Stabilizer G x) is indeed finite, and that equiv relation implies
 the same cardinality, we can prove the orbit-stabilizer theorem:
 |O(x)| = [G : Stab(x)]-/
 theorem orbit_Stabilizer (G : Type) [Group G] {X : Type} [Fintype X] [MulAction G X] (x : X) :
     Fintype.card (Orbit G x) = (Stabilizer G x).index := by
-  have h : (Fintype (G⧸(Stabilizer G x) )) := by
-    exact Fintype.ofEquiv (Orbit G x) (orbit_stabilizer_quot_equiv G x)
-  rw[Fintype.card_congr (orbit_stabilizer_quot_equiv G x)]
-  rw[Fintype.card_eq_nat_card]
+  have h : Fintype (G ⧸ Stabilizer G x) :=
+    Fintype.ofEquiv (Orbit G x) (orbit_stabilizer_quot_equiv G x)
+  rw [Fintype.card_congr (orbit_stabilizer_quot_equiv G x), Fintype.card_eq_nat_card]
   rfl

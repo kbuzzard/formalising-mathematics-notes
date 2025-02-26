@@ -19,16 +19,14 @@ def divides (a b : ℕ) : Prop := ∃ (k : ℕ), a * k = b
 /-Although we can still use the usual notation 'a | b', the proposition 'divides' could
 be useful at some points. Also, it is easider to just type letters down.-/
 example : a ∣ b ↔ divides a b := by
-  rw[divides]
+  rw [divides]
   constructor
-  intro h
-  cases h with
-  | intro k hk => use k; rw[hk]
-
-  intro h'
-  rcases h' with ⟨k, hk⟩
-  use k
-  rw[hk]
+  · rintro ⟨k, hk⟩
+    use k
+    rw [hk]
+  · rintro ⟨k, hk⟩
+    use k
+    rw [hk]
 
 /-We then define the common divisors and hence the GCD between two natural numbers.-/
 def common_divisors (a b : ℕ) := {d | d ∣ a ∧ d ∣ b}
@@ -49,11 +47,20 @@ def gcd'' (a b : ℕ) : Prop := ∃ x y : ℤ, a * x + b * y = Nat.gcd a b
 from the Euclidean Algorithm, which is not so relevant to our project. -/
 /-However, we can prove the relation between 'common_divisors' and 'gcd''.-/
 
-example: n ∈ common_divisors a b → n ∣ Nat.gcd a b:= by
+example: n ∈ common_divisors a b → n ∣ Nat.gcd a b := by
   rintro ⟨h1, h2⟩
   cases h1 with
-  | intro a' ha => cases h2 with
-    |intro b' hb => rw[ha, hb];sorry
+  | intro a' ha =>
+      cases h2 with
+      | intro b' hb =>
+          rw [ha, hb]
+          rw [Nat.gcd_mul_left]
+          exact Nat.dvd_mul_right n (a'.gcd b')
+
+-- BM: alternate proof
+example: n ∈ common_divisors a b → n ∣ Nat.gcd a b := by
+  rintro ⟨h1, h2⟩
+  apply Nat.dvd_gcd h1 h2
 
 /-By rw[ha,hb] we change gcd(a,b) into gcd(na',nb'), but we do not know how to bring n out
 of the gcd. In the original proof I have used the Euclidean Algorithm, but I have not formalised
@@ -61,9 +68,12 @@ it here. I now realised that the EA is in fact very essential in my project-/
 
 /-The reverse implication should also be true.-/
 
-example: n ∣ Nat.gcd a b → n ∈ common_divisors a b:= by
-  rintro ⟨k, hk⟩
-  sorry
+example : n ∣ Nat.gcd a b → n ∈ common_divisors a b := by
+  rintro hk
+  constructor
+  · apply hk.trans (Nat.gcd_dvd_left _ _)
+  · apply hk.trans (Nat.gcd_dvd_right _ _)
+
 /-For this one I need the fact that the GCD itself divides a and b, but I have no idea how
 to show it in Lean.-/
 
@@ -71,17 +81,17 @@ to show it in Lean.-/
 three properties of the GCD, namely gcd(a,b) = gcd(b,a), gcd(a,b) = gcd(a-b,b) and
 gcd(a,0) = a. I will now prove these properties.-/
 
-example: Nat.gcd a b = Nat.gcd b a:= by
-  rw[Nat.gcd_comm]
+example: Nat.gcd a b = Nat.gcd b a := by
+  rw [Nat.gcd_comm]
 
-example: Nat.gcd a b = Nat.gcd (a-b) b:= by
+example : Nat.gcd a b = Nat.gcd (a-b) b := by
   sorry
 /-For this one I need the fact that the GCD divides both a and b, and hence divides
 any linear combination of a and b. Unfortunately, I was not able to find a way to give
 the Lean proof. -/
 
-example: Nat.gcd a 0 = a:= by
-  rw[Nat.gcd_zero_right]
+example : Nat.gcd a 0 = a := by
+  rw [Nat.gcd_zero_right]
 
 /-More importantly, if the GCD of two natural numbers is 1, then these two numbers are
 said to be coprime.-/
@@ -90,13 +100,14 @@ def coprime (a b : ℕ) : Prop := Nat.gcd a b = 1
 
 /-The following theorem is a direct consequence of the definition of coprime.-/
 
-theorem coprime_def: coprime a b ↔ ∀ d ∈ common_divisors a b, d = 1:= by
+theorem coprime_def: coprime a b ↔ ∀ d ∈ common_divisors a b, d = 1 := by
   constructor
-  intro h
-  intro d hd
-  sorry
-  intro h'
-  sorry
+  · intro h
+    intro d hd
+    sorry
+  · intro h'
+    sorry
+
 /-I think that I have not clarified that 'Nat.gcd' gives the largest common divisor of a and b.
 So it is a (serious) issue of mixing the definitions that I came up with those from Mathlib.-/
 

@@ -10,7 +10,10 @@ variable {F : Type*}
 /- F is a real vector space with an inner product on it. -/
 variable [NormedAddCommGroup F] [InnerProductSpace ℝ F]
 
-local notation "⟪" x ", " y "⟫" => @inner ℝ F _ x y
+-- local notation "⟪" x ", " y "⟫" => @inner ℝ F _ x y
+open scoped RealInnerProductSpace
+-- BM: I'm guessing you figured out the notation from the file defining InnerProductSpace, but that
+-- line also tells you how to turn it on!
 
 /- The inner product of any vectors x, y in F with ‖x‖ = ‖y‖ = 1 is
 less than or equal to the product of their norms. -/
@@ -26,50 +29,56 @@ lemma cauchy_schwarz_norm_one (x y : F) (h1 : ‖x‖ = 1) (h2 : ‖y‖ = 1) : 
   simp [h1, h2, h3]
 
 -- Any vector x≠0 can be rewritten as a product of a non negative real and a vector with norm 1
-lemma rewrite_norm_one (x : F) (hx : ¬x = 0) :
-  ∃ (a : ℝ), ∃ (x' : F), x = a • x' ∧ ‖x'‖ = 1 ∧ 0 ≤ a := by
-  use ‖x‖
-  use ‖x‖⁻¹ • x
-  constructor
-  · rw [smul_inv_smul₀]
-    -- mpr is modus ponens reversed, If a ↔ b and b, then a
-    exact norm_ne_zero_iff.mpr hx
-  · constructor
-    -- rewrite ‖‖x‖⁻¹ • x‖ = 1 as ‖x‖⁻¹ • ‖x‖ = 1 and use x ≠ 0 to prove
-    · simp [norm_smul, hx]
-    · exact norm_nonneg x
+lemma rewrite_norm_one (x : F) (hx : x ≠ 0) :
+    ∃ (a : ℝ), ∃ (x' : F), x = a • x' ∧ ‖x'‖ = 1 ∧ 0 ≤ a := by
+  use ‖x‖, ‖x‖⁻¹ • x
+  simp [smul_inv_smul₀, norm_smul, hx]
 
 /- The inner product of any vectors x, y in F is less than or equal to the product of their
 norms. -/
 theorem cauchy_schwarz (x y : F) : ⟪x, y⟫ ≤ ‖x‖ * ‖y‖ := by
   by_cases hx : x = 0
   · simp [hx]
-  · by_cases hy : y = 0
-    · simp [hy]
-    · obtain ⟨a, x', rfl, h1, h2⟩ := rewrite_norm_one x hx
-      obtain ⟨b, y', rfl, h3, h4⟩ := rewrite_norm_one y hy
+  /- BM: while usual style is to have
 
-      simp only [real_inner_smul_left, real_inner_smul_right, norm_smul]
-      simp only [Real.norm_of_nonneg h2, Real.norm_of_nonneg h4]
+  cases ...
+  · sorry
+  · sorry
 
-      ring_nf
-      nth_rewrite 2 [mul_assoc]
+  it's also okay to have
 
-      -- both sides of the inequality scale by a factor of λμ
-      apply mul_le_mul_of_nonneg_left
-      · exact cauchy_schwarz_norm_one x' y' h1 h3
-      · exact mul_nonneg h4 h2
+  cases ...
+  · sorry
+  sorry
+
+  especially if the second case is much longer than the first. This doesn't break the rules, since
+  at no point do you have two active goals
+  -/
+
+  rcases eq_or_ne y 0 with rfl | hy
+  -- BM: the rcases/rfl trick is a nice one to know
+  -- `rfl` is hardcoded into rcases/rintro/obtain to introduce the equality, and then substitute
+  -- everywhere with it
+  · simp
+  obtain ⟨a, x', rfl, h1, h2⟩ := rewrite_norm_one x hx
+  obtain ⟨b, y', rfl, h3, h4⟩ := rewrite_norm_one y hy
+
+  calc
+    inner (a • x') (b • y') ≤ a * (b * inner x' y') := by
+      rw [real_inner_smul_left, real_inner_smul_right]
+    _ = (a * b) * inner x' y' := by ring
+    _ ≤ a * b * (‖x'‖ * ‖y'‖) := by gcongr; exact cauchy_schwarz_norm_one x' y' h1 h3
+    _ = a * ‖x'‖ * (b * ‖y'‖) := by ring
+    _ ≤ ‖a • x'‖ * ‖b • y'‖ := by
+      rw [norm_smul, norm_smul, Real.norm_of_nonneg h2, Real.norm_of_nonneg h4]
 
 /- The absolute value of the inner product of any vectors x, y in F is less than or equal to
 the product of their norms. -/
 theorem abs_cauchy_schwarz (x y : F) : |⟪x, y⟫| ≤ ‖x‖ * ‖y‖ := by
-  have h1 : ⟪x, y⟫ ≤ ‖x‖ * ‖y‖ := by
-    exact cauchy_schwarz x y
+  have h1 : ⟪x, y⟫ ≤ ‖x‖ * ‖y‖ := cauchy_schwarz x y
 
   have h2 : -⟪x, y⟫ ≤ ‖x‖ * ‖y‖ := by
     have h3 := cauchy_schwarz (-x) y
-    rw [norm_neg, inner_neg_left x y] at h3
-    exact h3
+    rwa [norm_neg, inner_neg_left x y] at h3
 
-  rw [abs]
-  exact sup_le h1 h2
+  simp [abs_le', *]

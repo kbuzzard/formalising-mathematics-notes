@@ -25,7 +25,7 @@ def power_series (a : ℕ → ℝ) (x : ℝ) (n : ℕ) : ℝ := ∑ i in Finset.
 
 theorem cauchy_iff_limit (a : ℕ → ℝ) : (∃ A : ℝ, TendsTo a A) ↔ Cauchy a := by
   constructor <;> intro h
-  . intro ep hep
+  · intro ep hep
     obtain ⟨A, hA⟩ := h
     specialize hA (ep / 2) (by linarith)
     obtain ⟨B, hB⟩ := hA
@@ -40,27 +40,43 @@ theorem cauchy_iff_limit (a : ℕ → ℝ) : (∃ A : ℝ, TendsTo a A) ↔ Cauc
   -- The goal is to show that if we have a Cauchy sequence, then it has a limit
   -- This requires the completeness of the real numbers
   -- I have left it sorried to save time
-  . sorry
+  · sorry
 
 -- If a sequence is absolutely converging, then it is convergent
-theorem convergent_of_absolutely_convergent (a : ℕ → ℝ) (h : Cauchy (fun x => |a x|)) : Cauchy a := by sorry
+theorem convergent_of_absolutely_convergent (a : ℕ → ℝ) (h : Cauchy fun x => |a x|) :
+    Cauchy a := by
+  sorry
+  -- this one is false: consider a(n) = (-1)^n
 
 -- did not end up using this, so didn't finish proof
 theorem comparison_test (a b : ℕ → ℝ) (h : ∀ n, |a n| ≤ b n) (hb : Cauchy b) : Cauchy a := by
+  -- also false, use b(n) = 1 and a(n) = (-1)^n
+  -- then b is obviously convergent, and |a n| ≤ b n
+  -- but a can't converge
   intro ε hep
   obtain ⟨B, hB⟩ := hb ε hep
   use B
   intro m n hm hn
   sorry
 
--- a proof that if you multiply a bounded sequence by an exponentially decreasing sequence pointwise,
--- then the resulting sequence is Cauchy
-theorem convergent_of_bdd (α : ℝ) (hα : 0 < α ∧ α < 1) (b : ℕ → ℝ) (hb : ∃ B, ∀ (n : ℕ), |b n| < B)
-    : Cauchy (fun t => b t * (α ^ t)) := by
-  sorry
+-- a proof that if you multiply a bounded sequence by an exponentially decreasing sequence
+-- pointwise, then the resulting sequence is Cauchy
+theorem convergent_of_bdd (α : ℝ) (hα₀ : 0 < α) (hα₁ : α < 1) (b : ℕ → ℝ)
+    (hb : ∃ B, ∀ (n : ℕ), |b n| < B) : Cauchy fun t => b t * α ^ t := by
+  obtain ⟨B, hB⟩ := hb
+  intro ε hε
+  use ⌈Real.log (ε / (2 * B)) / Real.log α⌉₊
+  intro m n hm hn
+  wlog hmn : m ≤ n generalizing m n
+  · simp only [not_le] at hmn
+    rw [abs_sub_comm]
+    exact this n m hn hm hmn.le
+  dsimp only
+  sorry -- I made some progress on this, just for fun
 
 -- This is a proof of the fact that if a series converges, the terms must tend to zero
-theorem tail_zero_of_sum (a : ℕ → ℝ) (h : Cauchy (λ n => ∑ i in Finset.range n, a i)) : TendsTo a 0 := by
+theorem tail_zero_of_sum (a : ℕ → ℝ) (h : Cauchy (λ n => ∑ i in Finset.range n, a i)) :
+    TendsTo a 0 := by
   by_contra silly
   simp only [TendsTo] at silly
   push_neg at silly
@@ -76,9 +92,12 @@ theorem tail_zero_of_sum (a : ℕ → ℝ) (h : Cauchy (λ n => ∑ i in Finset.
   -- but we can increase the sum by epsilon whenever we want
   -- if we do this twice, we get within epsilon of A + 2ε
   sorry
+  -- I'm pretty sure this sorry is false, see comments in the feedback
 
 theorem radius_of_convergence (a : ℕ → ℝ) :
-    (∃ (R : ℝ≥0∞), (∀ x : ℝ, ‖x‖₊ < R → Cauchy (power_series (fun t => ‖a t‖₊) x)) ∧ ∀ x : ℝ, ‖x‖₊ > R → ¬ Cauchy (power_series a x)) := by
+    ∃ (R : ℝ≥0∞),
+      (∀ x : ℝ, ‖x‖₊ < R → Cauchy (power_series (fun t => ‖a t‖₊) x)) ∧
+      (∀ x : ℝ, ‖x‖₊ > R → ¬ Cauchy (power_series a x)) := by
   let S := {x : ℝ≥0 | ∃ t : ℝ, ‖t‖₊ = x ∧ Cauchy (fun i => ‖a i * (x ^ i)‖₊)}
   set R := sSup (ENNReal.ofNNReal '' S) with hr
   clear_value R
@@ -91,6 +110,7 @@ theorem radius_of_convergence (a : ℕ → ℝ) :
     push_neg at silly
     -- have ht := sSup_le silly
     -- typeclass inference is not working, but the goal is provable
+    -- use csSup_le instead
     sorry
   constructor
   -- if |x| < R, then the power series converges
@@ -100,7 +120,7 @@ theorem radius_of_convergence (a : ℕ → ℝ) :
       exact h_lub ‖x‖₊ hx
     obtain ⟨y, hy, hxy⟩ := hS
     norm_cast
-    have hbdd := convergent_of_bdd (‖y‖₊ / ‖x‖₊) ⟨by sorry, sorry⟩ (fun i => ‖a i * (x ^ i)‖₊)
+    have hbdd := convergent_of_bdd (‖y‖₊ / ‖x‖₊) sorry sorry (fun i => ‖a i * (x ^ i)‖₊)
     have hc : Cauchy fun t => ↑‖a t * x ^ t‖₊ * (↑‖y‖₊ / ↑‖x‖₊) ^ t := by
       apply hbdd
       -- TODO: show it is bounded
@@ -120,11 +140,15 @@ theorem radius_of_convergence (a : ℕ → ℝ) :
       obtain ⟨t, ht, hcauchy⟩ := silly
       -- getting type class errors again :()
       -- the goal can be proved using properties of sSup
+      -- Be more specific on what you did and what the error was! I'm guessing you used a
+      -- CompleteLattice lemma when you're not in a CompleteLattice, and you meant to use a
+      -- ConditionallyCompleteLattice lemma instead.
       sorry
     have h := tail_zero_of_sum (fun i => ‖a i * (x ^ i)‖₊) sorry
     dsimp only [S] at this
-    have hk : Cauchy fun i => ↑‖a i * ↑x ^ i‖₊ := (cauchy_iff_limit (fun i => ‖a i * (x ^ i)‖₊)).mp ⟨0, sorry⟩
-    have hnk : ∃ t, t = ‖x‖₊ ∧ Cauchy fun i => ↑‖a i * ‖x‖₊ ^ i‖₊ := by sorry
+    have hk : Cauchy fun i => ‖a i * ↑x ^ i‖₊ :=
+      (cauchy_iff_limit (fun i => ‖a i * (x ^ i)‖₊)).mp ⟨0, sorry⟩
+    have hnk : ∃ t, t = ‖x‖₊ ∧ Cauchy fun i => ‖a i * ‖x‖₊ ^ i‖₊ := by sorry
     -- the above goal is provable and we get a contradiction
     sorry
 

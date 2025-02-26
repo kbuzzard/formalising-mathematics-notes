@@ -35,7 +35,10 @@ def interval (a : ℝ) (b : ℝ): Set ℝ := {x : ℝ | a ≤ x ∧ x ≤ b}
 def left_open_interval (a : ℝ) (b : ℝ): Set ℝ := {x : ℝ | a < x ∧ b ≤ x}
 
 -- Introduction of variables used throughout the file
-variable {T : ℝ}
+variable (T : ℝ)
+
+-- You needed to specify T pretty often, so it's probably sensible to make it an explicit
+-- argument of the defs
 
 /-- Definition of Lipschitz continuity in t on an interval [0,T] for functions ℝ → ℝ, mapping t ↦ f(t,x(t)),
   where f : ℝ × ℝ → ℝ, and x : ℝ → ℝ. -/
@@ -48,50 +51,54 @@ open Set
 /-- Definition of the differential equation with continuous f. -/
 def diff_eq (x : ℝ → ℝ) (f : ℝ × ℝ → ℝ) : Prop :=
   (∀ t ∈ interval 0 T, ContinuousAt (fun t => f (t,x t)) t) ∧
-  (fun t => indicator (interval 0 T) (derivWithin x (interval 0 T)) t) =
-   (fun t => indicator (interval 0 T) (fun t => f (t, x t)) t)
+  indicator (interval 0 T) (derivWithin x (interval 0 T)) =
+    indicator (interval 0 T) (fun t => f (t, x t))
 
 /-- By definition, a function x : ℝ → ℝ solves the initial value problem considered if and only if it
   satisfies ivp_sol. -/
-def ivp_sol (f: ℝ × ℝ → ℝ)(x_0 : ℝ)(x : ℝ → ℝ) : Prop :=
-  x 0 = x_0 ∧ diff_eq (T := T) x f
+def ivp_sol (f : ℝ × ℝ → ℝ) (x_0 : ℝ) (x : ℝ → ℝ) : Prop :=
+  x 0 = x_0 ∧ diff_eq T x f
 
-----------------------------------------------------------------------------------------------------------------
-/- Note: The following definition is not used throughout the file. It is given as it might be useful for future
+----------------------------------------------------------------------------------------------------
+/- Note: The following definition is not used throughout the file. It is given as it might be useful
+for future
 projects on in Lean since if the condition from the definition is satisfied, then there exists
-a solution to the initial value problem considered. The definition is therefore useful when it comes to proving
-statements about the existence of solutions to differential equations.-/
-/-- Defintion of the initial value problem that is supposed to be approximated numerically.
-  "ivp (f) (x_0)" assesses whether, for a given f and x_0, there exists an x which solves the initial value
-  problem. -/
-def ivp (f: ℝ × ℝ → ℝ)(x_0 : ℝ) : Prop :=
-  ∃ x : ℝ → ℝ, x 0 = x_0 ∧ diff_eq (T := T) x f
-----------------------------------------------------------------------------------------------------------------
+a solution to the initial value problem considered. The definition is therefore useful when it comes
+to proving statements about the existence of solutions to differential equations.-/
+/--
+Definition of the initial value problem that is supposed to be approximated numerically.
+"ivp f x_0" assesses whether, for a given f and x_0, there exists an x which solves the initial
+value problem.
+-/
+def ivp (f : ℝ × ℝ → ℝ) (x_0 : ℝ) : Prop :=
+  ∃ x : ℝ → ℝ, x 0 = x_0 ∧ diff_eq T x f
+----------------------------------------------------------------------------------------------------
 
 /-- Definition of a general explicit one-step method. -/
-def explicit_one_step_method (Φ : ℝ × ℝ × ℝ → ℝ) (Δt : ℝ) (x_0 : ℝ): ℕ → ℝ
+def explicit_one_step_method (Φ : ℝ × ℝ × ℝ → ℝ) (Δt : ℝ) (x_0 : ℝ) : ℕ → ℝ
   | 0 => x_0
-  | k + 1 => explicit_one_step_method (Φ) (Δt) (x_0) k +
-    Δt * Φ ((k : ℝ) * Δt, explicit_one_step_method (Φ) (Δt) (x_0) k, (Δt : ℝ))
+  | k + 1 => explicit_one_step_method Φ Δt x_0 k +
+      Δt * Φ (k * Δt, explicit_one_step_method Φ Δt x_0 k, Δt)
 
 /-- Definition of the truncation error of a numerical method. -/
 noncomputable def truncation_error (x : ℝ → ℝ) (k : ℕ) (Φ : ℝ × ℝ × ℝ → ℝ) (Δt : ℝ) : ℝ :=
-  (x (Δt *((k : ℝ) + (1 : ℝ))) - x (Δt*(k:ℝ))) / Δt - Φ ((k : ℝ) * Δt, x (Δt*k), Δt)
+  (x (Δt * (k + 1)) - x (Δt * k)) / Δt - Φ (k * Δt, x (Δt * k), Δt)
 
 /-- Definition of consistency of a numerical method. -/
 def is_consistent (Φ : ℝ × ℝ × ℝ → ℝ) (x_0 : ℝ) (f : ℝ × ℝ → ℝ) : Prop :=
-  (∃ x : ℝ → ℝ, ((ivp_sol (T:=T) f x_0 x))) ∧ (∀ t ∈ interval 0 T, ∀ a : ℝ, Φ (t, a, 0) = f (t, a))
+  (∃ x : ℝ → ℝ, ivp_sol T f x_0 x) ∧
+  (∀ t ∈ interval 0 T, ∀ a : ℝ, Φ (t, a, 0) = f (t, a))
 
 /-- Definition of stability of a numerical method. -/
 def is_stable (Φ : ℝ × ℝ × ℝ → ℝ) : Prop :=
-  ∃ C>0, ∃ h_0>0, ∀ t ∈ interval 0 T, ∀ a b: ℝ, ∀ Δt ∈ interval 0 h_0,
-  abs (Φ (t, a , Δt) - Φ (t, b, Δt)) ≤ C * abs (a - b)
+  ∃ C > 0, ∃ h_0 > 0, ∀ t ∈ interval 0 T, ∀ a b : ℝ, ∀ Δt ∈ interval 0 h_0,
+  abs (Φ (t, a, Δt) - Φ (t, b, Δt)) ≤ C * abs (a - b)
 
 /-- Definition of the global error of a numerical method. -/
 def global_error (Φ : ℝ × ℝ × ℝ → ℝ) (Δt : ℝ) (x_0 : ℝ) (k : ℕ) (x : ℝ → ℝ) : ℝ :=
-  abs (explicit_one_step_method (Φ) (Δt) (x_0) k - x k * Δt)
+  abs (explicit_one_step_method Φ Δt x_0 k - x (k * Δt))
 
-----------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 -- Convergence
 
 -- Adaptation of TendsTo definition from Section02reals/Sheet3.lean
@@ -101,29 +108,33 @@ def TendsTo (a : ℕ × ℝ → ℝ) (t : ℝ) : Prop :=
 
 /-- Definition of convergence. -/
 def is_convergent (Φ : ℝ × ℝ × ℝ → ℝ) (x_0 : ℝ) (x : ℝ → ℝ) (f: ℝ × ℝ → ℝ) : Prop :=
-  TendsTo (fun (k,Δt) ↦ abs (global_error (Φ) (Δt) (x_0) (k) (x))) (0) ∧ ivp_sol (T:=T) f x_0 x
-----------------------------------------------------------------------------------------------------------------
-/- Dahlquist-Lax Theorem: A one-step method is convergent if and only if it is consistent and stable.
- This statement is a lemma in the proof of the main theorem. For now, I assume it to be true. I propose
- to work on  a proof for this statement in a future Lean project. -/
+  TendsTo (fun (k, Δt) ↦ |global_error Φ Δt x_0 k x|) 0 ∧ ivp_sol T f x_0 x
+
+----------------------------------------------------------------------------------------------------
+/-
+Dahlquist-Lax Theorem: A one-step method is convergent if and only if it is consistent and stable.
+This statement is a lemma in the proof of the main theorem. For now, I assume it to be true. I
+propose to work on a proof for this statement in a future Lean project. -/
 theorem dahlquist_lax_theorem (Φ : ℝ × ℝ × ℝ → ℝ) (x_0 : ℝ) (x : ℝ → ℝ) (f : ℝ × ℝ → ℝ):
-  is_convergent (T := T) Φ x_0 x f ↔ (is_consistent (T := T) Φ x_0 f ∧ is_stable (T := T) Φ) := by
+  is_convergent T Φ x_0 x f ↔ (is_consistent T Φ x_0 f ∧ is_stable T Φ) := by
   sorry
 
-----------------------------------------------------------------------------------------------------------------
-/- Some statemets from the proof ot Dahlquist-Lax theorem which are needed for the proof of the order theorem.
- **In the theorems, the way they are stated below, we do not consider any additional conditions imposed by the**
- **Dahlquist-Lax Theorem. Therefore, the statements from this section do not hold in generality.**
- I decided to comment out the statement that are not used again throughout the file to avoid confusion.
- In this section, we make use of sSup, a definition of the supremum of a set, and IsBigO for Landau big O notation.
- These definitions were both suggested to me by Bhavik Mehta. -/
+----------------------------------------------------------------------------------------------------
+/- Some statemets from the proof to Dahlquist-Lax theorem which are needed for the proof of the
+order theorem.
+**In the theorems, the way they are stated below, we do not consider any additional conditions**
+**imposed by the Dahlquist-Lax Theorem. Therefore, the statements from this section do not hold in**
+**generality.**
+I decided to comment out the statement that are not used again throughout the file to avoid
+confusion. In this section, we make use of sSup, a definition of the supremum of a set, and IsBigO
+for Landau big O notation. These definitions were both suggested to me by Bhavik Mehta. -/
 
 -- The namespace is Asymptotics is opened in order to work with Landau notation.
 open Asymptotics
 
-/- Remark: The follwing definitions are not intended to be added to MathLib, and therefore their descriptions
-  are not self-explanatory. I intend to implement them in my proof of the Dahlquist-Lax theorem which I intend
-  to approach in the future. -/
+/- Remark: The following definitions are not intended to be added to MathLib, and therefore their
+descriptions are not self-explanatory. I intend to implement them in my proof of the Dahlquist-Lax
+theorem which I intend to approach in the future. -/
 
 /-- Auxiliary definition used in the Proof of Dahlquist-Lax Theorem (1). -/
 noncomputable def ω_1 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (T : ℝ) (x : ℝ → ℝ) : ℝ :=
@@ -137,22 +148,23 @@ noncomputable def ω_1 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (T : ℝ) (x : ℝ �
 
 /-- Auxiliary definition used in the Proof of Dahlquist-Lax Theorem (2). -/
 noncomputable def ω_2 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (Φ : ℝ × ℝ × ℝ → ℝ) : ℝ :=
-  sSup { y : ℝ | ∃ a : ℝ, ∃  t ∈ interval 0 T, ∃ h ∈ left_open_interval 0 Δt, y = abs (Φ (t, a, h) - f (t, a))}
+  sSup { y : ℝ | ∃ a : ℝ, ∃ t ∈ interval 0 T, ∃ h ∈ left_open_interval 0 Δt,
+    y = abs (Φ (t, a, h) - f (t, a))}
 
--- /- In the proof of the Dahlquist-Lax Theorem, we show that ω_2 = 0. -/
--- theorem lemma_ω_2 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (Φ : ℝ × ℝ × ℝ → ℝ):
---   ω_2 (Δt) (f) (Φ) (T := T) = (0 : ℝ) := by
---   sorry
+/- In the proof of the Dahlquist-Lax Theorem, we show that ω_2 = 0. -/
+theorem lemma_ω_2 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (Φ : ℝ × ℝ × ℝ → ℝ):
+  ω_2 T Δt f Φ = (0 : ℝ) := by
+  sorry
 
 /-- Auxiliary definition used in the Proof of Dahlquist-Lax Theorem (3). -/
 noncomputable def ω_3 (Δt : ℝ) (f : ℝ × ℝ → ℝ) (Φ : ℝ × ℝ × ℝ → ℝ) (x : ℝ → ℝ) : ℝ :=
-  ω_1 (Δt) (f) (T) (x) + ω_2 (Δt) (f) (Φ) (T := T)
+  ω_1 Δt f T x + ω_2 T Δt f Φ
 
-/- In the proof of the Dahlquist-Lax Theorem, we show that the global error is O(Δt). This theorem only holds
-  in the specific context of the proof of the Dahlquist-Lax Theorem given in the Lecture Notes, specified in my
-  project report. -/
+/- In the proof of the Dahlquist-Lax Theorem, we show that the global error is O(Δt). This theorem
+only holds in the specific context of the proof of the Dahlquist-Lax Theorem given in the Lecture
+Notes, specified in my project report. -/
 theorem lemma_ω_3 (f : ℝ × ℝ → ℝ) (Φ : ℝ × ℝ × ℝ → ℝ) (T : ℝ) :
-  ∀ (k : ℕ), ((k*Δt) ≤ T) → ((IsBigO (nhds 0) (fun d ↦ global_error Φ d x_0 k x) id)) := by
+    ∀ (k : ℕ), k * Δt ≤ T → IsBigO (nhds 0) (fun d ↦ global_error Φ d x_0 k x) id := by
   sorry
 
 -- The namespace Set is opened in order to use the exp function.
@@ -171,52 +183,48 @@ open Real
 /-- Definition of explicit Euler method. -/
 def explicit_euler (f : ℝ × ℝ → ℝ) (Δt : ℝ) (x_0 : ℝ) : ℕ → ℝ :=
   explicit_one_step_method (fun (t,x,Δt) => f (t, x) + 0*Δt) (Δt) (x_0)
+  -- 0 * Δt is 0
 
 /-- Definition checking if a method is an explicit Euler method. -/
 def is_euler (f : ℝ × ℝ → ℝ) (x_0 : ℝ) (Φ : ℝ × ℝ × ℝ → ℝ) : Prop :=
-  (∃ x : ℝ → ℝ, (ivp_sol (T := T) f x_0 x)) ∧
+  (∃ x : ℝ → ℝ, (ivp_sol T f x_0 x)) ∧
   (∀ t ∈ interval 0 T, ∀ a : ℝ, ∀ Δt ∈ interval 0 T, Φ (t,a,Δt) = f (t,a))
 
 ----------------------------------------------------------------------------------------------------------------
 /- Main Theorem: Consider an initial value problem of the form introduced in the **Goal**.
   Then the explicit Euler scheme is convergent.-/
 theorem main_theorem (f: ℝ × ℝ → ℝ) (x_0 : ℝ) (Φ : ℝ × ℝ × ℝ → ℝ) :
-  is_euler (T:=T) (f) (x_0) (Φ) ∧ T>0 ∧ lipschitz_continuous f T→
-  is_convergent (T:=T) (Φ) (x_0) (x) (f) := by
-
+    is_euler (T:=T) (f) (x_0) (Φ) ∧ T>0 ∧ lipschitz_continuous f T→
+    is_convergent (T:=T) (Φ) (x_0) (x) (f) := by
   intro h -- Hypothesis: (is_euler f x_0 Φ ∧ T > 0) ∧ (lipschitz_continuous f T)
-  rw[dahlquist_lax_theorem] -- Change to goal to showing stability and consistency
+  rw [dahlquist_lax_theorem] -- Change to goal to showing stability and consistency
   constructor -- Seperate the two goal from each other - create two separate goals
   -- Proof of Consistency
   · rw [is_consistent]
     rw [is_euler] at h
     constructor
-    · cases' h with h_euler h_lipschitz
-      cases' h_euler with h_ivp h_Φ_f
+    · rcases h with ⟨⟨h_ivp, h_Φ_f⟩, h_lipschitz⟩
       apply h_ivp
-    · rcases h with ⟨h1, h_T_pos, h_lipschitz⟩
-      cases' h1 with h_ivp h_Φ_f
+    · rcases h with ⟨⟨h_ivp, h_Φ_f⟩, h_T_pos, h_lipschitz⟩
       intro t
-      have zero_works: 0 ∈ interval 0 T := by
-        rw[interval]
-        norm_num
+      have zero_works : 0 ∈ interval 0 T := by
+        rw [interval]
+        simp only [mem_setOf_eq, le_refl, true_and]
         change 0 < T at h_T_pos
         exact le_of_lt h_T_pos
       aesop
   -- Proof of Stability
   · rw [is_stable]
     rw [lipschitz_continuous] at h
-    cases' h with h_euler h_lipschitz
-    rcases h_lipschitz with ⟨h_T_pos, C, h_C_pos, h_lipschitz⟩
+    rcases h with ⟨h_euler, h_T_pos, C, h_C_pos, h_lipschitz⟩
     use C
     constructor
     · apply h_C_pos
     · use T
       constructor
       · exact h_T_pos
-      · rw[is_euler] at h_euler
-        cases' h_euler with h_ivp h_Φ_f
-        cases' h_ivp with x h_ivp
+      · rw [is_euler] at h_euler
+        rcases h_euler with ⟨⟨x, h_ivp⟩, h_Φ_f⟩
         aesop
 
 ----------------------------------------------------------------------------------------------------------------
@@ -313,23 +321,23 @@ theorem f_C1_implies_x_C2 (f: ℝ × ℝ → ℝ) (T := T) (x : ℝ → ℝ) (x_
   cases' h with h_cont_diff h_ivp
 
   have h_derivx_cont_diff :
-    ContDiffOn ℝ 1 (fun t => indicator (interval 0 T) (derivWithin x (interval 0 T)) t) (interval 0 T) := by
+      ContDiffOn ℝ 1
+        (fun t => indicator (interval 0 T) (derivWithin x (interval 0 T)) t)
+        (interval 0 T) := by
 
-    change (ContDiffOn ℝ 1 (fun t => indicator (interval 0 T) (fun t => f (t, x t)) t) (interval 0 T))
-    at h_cont_diff
-    rw[ContDiffOn] at h_cont_diff
-    rw[ContDiffOn]
-    rw[ivp_sol] at h_ivp
+    change
+      ContDiffOn ℝ 1 (fun t => indicator (interval 0 T) (fun t => f (t, x t)) t) (interval 0 T)
+      at h_cont_diff
+    rw [ContDiffOn] at h_cont_diff
+    rw [ContDiffOn]
+    rw [ivp_sol] at h_ivp
     cases' h_ivp with h_init h_diff_eq
 
-    rw[_root_.diff_eq] at h_diff_eq
+    rw [_root_.diff_eq] at h_diff_eq
     cases' h_diff_eq with h_f_cont h_derivx_equals_f
+    rwa [h_derivx_equals_f]
 
-    rw [h_derivx_equals_f]
-
-    exact h_cont_diff
-
-  have reg_thm : (ContDiffOn ℝ (2) (fun t => indicator (interval 0 T) (x) t) (interval 0 T)) := by
+  have reg_thm : (ContDiffOn ℝ 2 (fun t => indicator (interval 0 T) x t) (interval 0 T)) := by
     apply regularity_theorem_on_indicator
     · exact h_T_pos
     · exact hx
@@ -338,6 +346,7 @@ theorem f_C1_implies_x_C2 (f: ℝ × ℝ → ℝ) (T := T) (x : ℝ → ℝ) (x_
 
   aesop
 
+-- I changed a few things!
 
 /- With the same conditions as above, and the additional condition that f is continuously differentiable,
 the global error is of order one. -/

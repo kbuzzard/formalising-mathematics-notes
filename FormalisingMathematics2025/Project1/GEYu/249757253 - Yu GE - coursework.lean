@@ -17,6 +17,7 @@ theorem tendsTo_def {x : ℕ → ℝ} {a : ℝ} :
 theorem subset_def : A ⊆ B ↔ ∀ x, x ∈ A → x ∈ B := by
   rfl
 
+-- This proof is taken directly from the course notes.
 /-- Uniqueness of limits for real sequences. -/
 theorem tendsTo_unique (a : ℕ → ℝ) (s t : ℝ) (hs : TendsTo a s) (ht : TendsTo a t) : s = t := by
   by_contra h
@@ -60,25 +61,25 @@ def intervalLength (a b : ℝ) : ℝ := b - a
 
 
 lemma monotone_increasing_bounded_above_convergent
-  (u : ℕ → ℝ)
-  (hMono : ∀ n, u n ≤ u (n+1))          -- monotone increasing
-  (hBound : ∃ M, ∀ n, u n ≤ M)          -- bounded above
-  : ∃ L : ℝ, TendsTo u L := by
+    (u : ℕ → ℝ)
+    (hMono : ∀ n, u n ≤ u (n+1))          -- monotone increasing
+    (hBound : ∃ M, ∀ n, u n ≤ M) :        -- bounded above
+    ∃ L : ℝ, TendsTo u L := by
   sorry  -- Typical approach: use completeness to construct the limit.
 
 lemma monotone_decreasing_bounded_below_convergent
-  (u : ℕ → ℝ)
-  (hMono : ∀ n, u (n+1) ≤ u n)          -- monotone decreasing
-  (hBound : ∃ m, ∀ n, m ≤ u n)          -- bounded below
-  : ∃ L : ℝ, TendsTo u L := by
+    (u : ℕ → ℝ)
+    (hMono : ∀ n, u (n+1) ≤ u n)          -- monotone decreasing
+    (hBound : ∃ m, ∀ n, m ≤ u n) :        -- bounded below
+    ∃ L : ℝ, TendsTo u L := by
   sorry
 
 /-- If `a` is a monotone increasing sequence converging to `A`, then `a n ≤ A` for all `n`. -/
 lemma monotone_increasing_seq_le_limit
-  (a : ℕ → ℝ) (A : ℝ)
-  (hMono : ∀ n, a n ≤ a (n+1))
-  (hA : TendsTo a A)
-  : ∀ n, a n ≤ A := by
+    (a : ℕ → ℝ) (A : ℝ)
+    (hMono : ∀ n, a n ≤ a (n+1))
+    (hA : TendsTo a A) :
+    ∀ n, a n ≤ A := by
   sorry
 
 /--
@@ -88,10 +89,10 @@ lemma monotone_increasing_seq_le_limit
   then the intersection of all those intervals is exactly a single point.
  -/
 theorem nestedIntervals_theorem
-  {a b : ℕ → ℝ}
-  (hNested : NestedIntervals a b)                   -- The condition of nested intervals
-  (hLimit  : ∀ ε > 0, ∃ N, ∀ n ≥ N, (b n - a n) < ε) -- Equivalent to (b n - a n) → 0
-  : ∃ c : ℝ, (⋂ n, closedInterval (a n) (b n)) = { c } := by
+    {a b : ℕ → ℝ}
+    (hNested : NestedIntervals a b)                      -- The condition of nested intervals
+    (hLimit  : ∀ ε > 0, ∃ N, ∀ n ≥ N, (b n - a n) < ε) : -- Equivalent to (b n - a n) → 0
+    ∃ c : ℝ, (⋂ n, closedInterval (a n) (b n)) = { c } := by
 
   /-
     Step 1: From `hNested`, we obtain the monotonicity of `a` and `b`, i.e.
@@ -103,7 +104,7 @@ theorem nestedIntervals_theorem
     have hA_le_Bn1 : a (n+1) ≤ b (n+1) := hNested.1 (n+1)
     have hx1 : x ∈ closedInterval (a (n+1)) (b (n+1)) := by
       simp only [closedInterval, Set.mem_setOf_eq]
-      refine ⟨le_rfl, hA_le_Bn1⟩
+      exact ⟨le_rfl, hA_le_Bn1⟩
     have hx2 : x ∈ closedInterval (a n) (b n) := (hNested.2 n) hx1
     simp only [closedInterval, Set.mem_setOf_eq] at hx2
     exact hx2.1
@@ -141,6 +142,7 @@ theorem nestedIntervals_theorem
       induction n with
       | zero => rfl
       | succ k ih => exact le_trans ih (hMonotoneA k)
+      -- nice
     exact le_trans ha0_le_an (hNested.1 n)
 
   /-
@@ -154,7 +156,14 @@ theorem nestedIntervals_theorem
     Interpret that as `TendsTo (fun n => b n - a n) 0`.
   -/
   have subTendsToZero : TendsTo (fun n => b n - a n) 0 := by
-    sorry
+    rw [TendsTo]
+    intro ε hε
+    obtain ⟨N, hN⟩ := hLimit ε hε
+    use N
+    intro n hn
+    specialize hN n hn
+    rwa [sub_zero, abs_of_nonneg]
+    simpa using hNested.1 n
 
   /-
     Also, `(fun n => b n - a n)` should converge to `(B - A)`.
@@ -194,7 +203,7 @@ theorem nestedIntervals_theorem
     -- By the squeeze theorem: a(n) → c and b(n) → c, and a(n) ≤ x(n) ≤ b(n), hence x(n) → c.
     have hx_c : TendsTo x c := by
       -- We know hA: TendsTo a c, hB: TendsTo b c, and a(n) ≤ c' ≤ b(n).
-      have hC : TendsTo b A := by sorry
+      have hC : TendsTo b A := by rwa [equality]
       apply squeeze_theorem hA hC
       intro n
       exact ⟨(he n).1, (he n).2⟩

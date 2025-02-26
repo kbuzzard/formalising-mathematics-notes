@@ -60,25 +60,15 @@ lemma split_interval {a b c x : ℝ} (h : a < b ∧ b < c) :
     by_cases hb : x ≤ b
     · left
       constructor
-      · exact hax
-      · exact hb
+      exacts [hax, hb] -- or <;> assumption
     · right
-      simp at hb
-      constructor
-      · linarith
-      · linarith
-  · intro h1
-    cases h1 with
-    | inl haxb =>
-      cases' haxb with hax hxb
-      constructor
-      · exact hax
-      · linarith
-    | inr hbxc =>
-      cases' hbxc with hbx hxc
-      constructor
-      · linarith
-      · exact hxc
+      simp only [not_le] at hb
+      constructor <;>
+      linarith
+  · -- this is a really nice example of rcases / rintro:
+    rintro (⟨hax, hxb⟩ | ⟨hbx, hxc⟩)
+    · exact ⟨hax, by linarith⟩
+    · exact ⟨by linarith, hxc⟩
 
 /--
 Now, we define what it means for a real function to be uniformly continuous on a subset of ℝ
@@ -108,17 +98,15 @@ example : uniform_continuous_on id {x : ℝ | x ≥ 0} := by
 
 /-- Assume that f
 -/
-theorem uniform_continuity_interval {a b c : ℝ} {f : ℝ → ℝ} {h : a < b ∧ b < c}
-{hf1 : uniform_continuous_on f (half_open_interval_left a b)}
-{hf2 : uniform_continuous_on f (half_open_interval_right b c)} :
-uniform_continuous_on f (open_interval a c) := by
+theorem uniform_continuity_interval {a b c : ℝ} {f : ℝ → ℝ} (h : a < b ∧ b < c)
+    (hf1 : uniform_continuous_on f (half_open_interval_left a b))
+    (hf2 : uniform_continuous_on f (half_open_interval_right b c)) :
+    uniform_continuous_on f (open_interval a c) := by
   -- Let ε > 0
   intro ε hε
   have hε2 : ε / 2 > 0 := by linarith
   -- Use the definition of uniform continuity in order to obtain desired δ1
-  specialize hf1 (ε / 2) hε2
-  cases' hf1 with δ1 htemp1
-  cases' htemp1 with hδ1 h1
+  obtain ⟨δ1, hδ1, h1⟩ := hf1 (ε / 2) hε2
   -- Repeat same logic to obtain δ2
   specialize hf2 (ε / 2) hε2
   cases' hf2 with δ2 htemp2
@@ -126,7 +114,7 @@ uniform_continuous_on f (open_interval a c) := by
   -- Proving that δ = min{δ1, δ2} works to show uniform continuity of f on entire interval
   use (min δ1 δ2)
   -- Solving the δ > 0 condition using the fact that δ1, δ2 > 0
-  simp [lt_min hδ1 hδ2]
+  simp only [gt_iff_lt, lt_min hδ1 hδ2, lt_inf_iff, and_imp, true_and]
   -- Introduce arbitrary x, y ∈ (a, c) and corresponding hypotheses
   intro x y hx hy hxyδ1 hxyδ2
   -- rw [split_interval] at hx
@@ -146,9 +134,7 @@ uniform_continuous_on f (open_interval a c) := by
     -- Split into cases where a < x ≤ b or b < x < c
     by_cases hxb : x ≤ b
     · left
-      constructor
-      · exact hax
-      · exact hxb
+      constructor <;> assumption
     · right
       simp at hxb
       constructor <;>
@@ -163,7 +149,7 @@ uniform_continuous_on f (open_interval a c) := by
       · exact hay
       · exact hyb
     · right
-      simp at hyb
+      simp only [not_le] at hyb
       constructor <;>
       linarith
   -- We show that b belongs to both (a, b] and [b, c) before splitting into cases
@@ -189,8 +175,8 @@ uniform_continuous_on f (open_interval a c) := by
     | inl hayb =>
       -- Case 1: Both x and y are in (a, b]
       specialize h1 x y
-      have haxyb : x ∈ half_open_interval_left a b ∧ y ∈ half_open_interval_left a b := by
-        exact ⟨haxb, hayb⟩
+      have haxyb : x ∈ half_open_interval_left a b ∧ y ∈ half_open_interval_left a b :=
+        ⟨haxb, hayb⟩
       apply h1 at haxyb
       apply haxyb at hxyδ1
       linarith
@@ -201,24 +187,17 @@ uniform_continuous_on f (open_interval a c) := by
       have hxb : x ∈ half_open_interval_left a b ∧ b ∈ half_open_interval_left a b := by
         constructor
         · exact haxb
-        · cases' hb with hbleft hbright
-          exact hbleft
+        · exact hb.1
       apply h1 at hxb
       have hby : b ∈ half_open_interval_right b c ∧ y ∈ half_open_interval_right b c := by
-        constructor
-        · cases' hb with hbleft hbright
-          exact hbright
-        · exact hbyc
+        simp_all -- this works too
       apply h2 at hby
       -- Proving that x ≤ b ≤ y
       have hxby : x ≤ b ∧ b ≤ y := by
         rw [half_open_interval_left] at haxb
         rw [half_open_interval_right] at hbyc
-        cases' haxb with _ haxbright
-        cases' hbyc with hbycleft _
-        constructor
-        · exact haxbright
-        · exact hbycleft
+        -- another way to work with ∧ in a hypothesis is to do .1 or .2 on it
+        exact ⟨haxb.2, hbyc.1⟩
       -- Proving that |x - b| ≤ |x - y|
       have hxbxy : |x - b| ≤ |x - y| := by
         cases' hxby with hxleb hbley
@@ -251,8 +230,8 @@ uniform_continuous_on f (open_interval a c) := by
       -/
       have hbasic : |f x - f b + (f b - f y)| = |f x - f y| := by
         norm_num
-      have hfle : |f x - f y| ≤ |f x - f b| + |f b - f y| := by
-        linarith
+      -- have hfle : |f x - f y| ≤ |f x - f b| + |f b - f y| := by
+      --   linarith
       linarith
   -- We mirror the argument above:
   | inr hbxc =>
@@ -304,8 +283,8 @@ uniform_continuous_on f (open_interval a c) := by
         exact abs_add (f x - f b) (f b - f y)
       have hbasic : |f x - f b + (f b - f y)| = |f x - f y| := by
         norm_num
-      have hfle : |f x - f y| ≤ |f x - f b| + |f b - f y| := by
-        linarith
+      -- have hfle : |f x - f y| ≤ |f x - f b| + |f b - f y| := by
+      --   linarith
       -- Symmetry of absolute value
       rw [abs_sub_comm (f y) (f b)] at hybδ1
       rw [abs_sub_comm (f b) (f x)] at hbxδ2

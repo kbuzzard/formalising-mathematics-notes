@@ -6,14 +6,15 @@ open QuotientGroup
 
 -- A very specific result we will need in theorem T1
 -- Prove that if N is a normal subgroup of G and g * k⁻¹ ∈ N, then ∃ n ∈ N, k * n = g
-lemma L1 {G : Type} [Group G] (N : Subgroup G) [s :Subgroup.Normal N] (g k : G): g * k⁻¹ ∈ N → (∃ n ∈ N, k * n = g) := by
+lemma L1 {G : Type} [Group G] (N : Subgroup G) (hN : Subgroup.Normal N) (g k : G) :
+    g * k⁻¹ ∈ N → (∃ n ∈ N, k * n = g) := by
 
   intro q1
 
   -- Getting k⁻¹ * g ∈ N from g * k⁻¹ ∈ N, because N is normal
-  have q2 : k⁻¹ * g ∈ N := by exact Subgroup.Normal.mem_comm s q1
+  have q2 : k⁻¹ * g ∈ N := hN.mem_comm q1
 
-  have q3 : ∃ n ∈ N, k⁻¹ * g = n := by exact exists_eq_right'.mpr q2
+  have q3 : ∃ n ∈ N, k⁻¹ * g = n := exists_eq_right'.mpr q2
 
   -- Just unpacking hypotheses with cases
   cases' q3 with n q4
@@ -21,19 +22,15 @@ lemma L1 {G : Type} [Group G] (N : Subgroup G) [s :Subgroup.Normal N] (g k : G):
 
   -- Trying to get g = k * n
   have q7 : k * (k⁻¹ * g) = k * n := by exact congrArg (HMul.hMul k) q6
-  rw [← mul_assoc k k⁻¹ g] at q7
-  rw [mul_inv_self k] at q7
-  rw [one_mul] at q7
+  rw [← mul_assoc k k⁻¹ g, mul_inv_cancel, one_mul] at q7
 
   -- Using n and breaking into cases
   use n
   constructor
-  exact q5
+  · exact q5
 
   -- Silly step to get k * n = g from g = k * n
-  have q8 : k * n = g := by exact _root_.id q7.symm
-  exact q8
-  done
+  exact q7.symm
 
 
 -- Definition of injectivity
@@ -50,71 +47,74 @@ theorem injective_def (X Y : Type) (f : X → Y) : Injective f ↔ ∀ a b : X, 
 -- Here we consider the special case N = ker(φ)
 
 -- Prove that ψ is injective
-theorem T1 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ.ker → φ x = 1): Injective (lift φ.ker φ h) := by
+theorem T1 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ.ker → φ x = 1) :
+    Injective (lift φ.ker φ h) := by
 
-   rw [injective_def]
+  rw [injective_def]
 
-   intro a b h1
+  intro a b h1
 
-  -- Using the fact that η is serjective
-   have h2 : ∃ (g : G), mk' φ.ker g = a := by exact Quot.exists_rep a
-   have h3 : ∃ (g : G), mk' φ.ker g = b := by exact Quot.exists_rep b
+-- Using the fact that η is serjective
+  have h2 : ∃ (g : G), mk' φ.ker g = a := by exact Quot.exists_rep a
+  have h3 : ∃ (g : G), mk' φ.ker g = b := by exact Quot.exists_rep b
 
-  -- So now we have η(g) = a and η(k) = b
-   cases' h2 with g h4
-   cases' h3 with k h5
+-- So now we have η(g) = a and η(k) = b
+  cases' h2 with g h4
+  cases' h3 with k h5
 
-  -- Substituting η(g) for a and η(k) for b, in h1
-   rw [← h4] at h1
-   rw [← h5] at h1
+-- Substituting η(g) for a and η(k) for b, in h1
+  rw [← h4] at h1
+  rw [← h5] at h1
 
-  -- Using the fact that ψ ∘ η = φ to reduce h1 to the prop φ(g) = φ(k)
-   have h6 : (lift φ.ker φ h) ((QuotientGroup.mk' (φ.ker)) g) = φ g := by rfl
-   have h7 : (lift φ.ker φ h) ((QuotientGroup.mk' (φ.ker)) k) = φ k := by rfl
-   rw [h6] at h1
-   rw [h7] at h1
+-- Using the fact that ψ ∘ η = φ to reduce h1 to the prop φ(g) = φ(k)
+  have h6 : lift φ.ker φ h (QuotientGroup.mk' (φ.ker) g) = φ g := by rfl
+  have h7 : lift φ.ker φ h (QuotientGroup.mk' (φ.ker) k) = φ k := by rfl
+  rw [h6] at h1
+  rw [h7] at h1
 
-  -- Bunch of steps to go from φ(g) = φ(k) to φ(g * k⁻¹) = 1
-   have p1 : (φ g) * (φ k)⁻¹ = (φ k) * (φ k)⁻¹ := by exact congrFun (congrArg HMul.hMul h1) (φ k)⁻¹
-   rw [mul_inv_self (φ k)] at p1
-   rw [← φ.map_inv k] at p1
-   rw [← φ.map_mul g k⁻¹] at p1
+-- Bunch of steps to go from φ(g) = φ(k) to φ(g * k⁻¹) = 1
+  have p1 : (φ g) * (φ k)⁻¹ = (φ k) * (φ k)⁻¹ := by exact congrFun (congrArg HMul.hMul h1) (φ k)⁻¹
+  rw [mul_inv_cancel (φ k), ← φ.map_inv k, ← φ.map_mul g k⁻¹] at p1
 
-  -- Using lemma L1 to get p3 as '∃ n ∈ φ.ker, k * n = g'
-   have p3 : ∃ n ∈ φ.ker, k * n = g := by exact  L1 (ker φ) g k (h (g * k⁻¹) (h (g * k⁻¹) (h (g * k⁻¹) (h (g * k⁻¹) p1))))
+-- Using lemma L1 to get p3 as '∃ n ∈ φ.ker, k * n = g'
+  have p3 : ∃ n ∈ φ.ker, k * n = g :=
+    L1 (ker φ) (normal_ker φ) g k (h (g * k⁻¹) (h (g * k⁻¹) (h (g * k⁻¹) (h (g * k⁻¹) p1))))
 
-  -- Using p3 to get η(k) = η(g)
-  -- Had to get p3 in a very specific format to use 'mk'_eq_mk'
-   have p4 : (QuotientGroup.mk' (φ.ker)) k = (QuotientGroup.mk' (φ.ker)) g := by exact (mk'_eq_mk' (ker φ)).mpr p3
+-- Using p3 to get η(k) = η(g)
+-- Had to get p3 in a very specific format to use 'mk'_eq_mk'
+  have p4 : QuotientGroup.mk' φ.ker k = QuotientGroup.mk' φ.ker g :=
+    (mk'_eq_mk' (ker φ)).mpr p3
 
-  -- Substituting a for η(g) and b for η(k)
-   rw [h5] at p4
-   rw [h4] at p4
+-- Substituting a for η(g) and b for η(k)
+  rw [h5] at p4
+  rw [h4] at p4
 
-  -- Silly step to get a = b from b = a
-   have p5 : a = b := by exact _root_.id p4.symm
-   exact p5
+-- Silly step to get a = b from b = a
+  exact p4.symm
 
-   done
+  done
 
 
 -- Prove that range(ψ) = range(φ)
-theorem T2 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ.ker → φ x = 1) : (lift φ.ker φ h).range = φ.range := by
+theorem T2 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ.ker → φ x = 1) :
+    (lift φ.ker φ h).range = φ.range := by
 
   -- range(ψ) = range(φ) ↔ range(ψ) ≤ range(φ) ∧ range(φ) ≤ range(ψ)
   -- We will break into two cases and prove them one at a time
-  have t1 : (lift φ.ker φ h).range = φ.range ↔ (((lift φ.ker φ h).range ≤ φ.range) ∧ (φ.range ≤ (lift φ.ker φ h).range)) := by exact le_antisymm_iff
+  have t1 : (lift φ.ker φ h).range = φ.range ↔
+      (lift φ.ker φ h).range ≤ φ.range ∧ φ.range ≤ (lift φ.ker φ h).range :=
+    le_antisymm_iff
   rw [t1]
   constructor
 
   -- Showing range(ψ) ≤ range(φ)
   intro k t2
-  have t3 : ∃ a : G⧸φ.ker, (lift (ker φ) φ h) a = k := by exact t2
+  have t3 : ∃ a : G⧸φ.ker, lift (ker φ) φ h a = k := by exact t2
   cases' t3 with a t4
   have t5 : ∃ (g : G), mk' φ.ker g = a := by exact Quot.exists_rep a
   cases' t5 with g t6
   rw [← t6] at t4
-  have t7 : (lift φ.ker φ h) ((QuotientGroup.mk' (φ.ker)) g) = φ g := by rfl
+  have t7 : lift φ.ker φ h (QuotientGroup.mk' φ.ker g) = φ g := by rfl
   rw [t7] at t4
   have t8 : ∃ x : G, φ x = k := by exact Exists.intro g t4
   exact t8
@@ -123,9 +123,9 @@ theorem T2 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ
   intro m r1
   have r2 : ∃ p : G, φ p = m := by exact r1
   cases' r2 with p r3
-  have r4 : φ p = (lift φ.ker φ h) ((QuotientGroup.mk' (φ.ker)) p) := by rfl
+  have r4 : φ p = lift φ.ker φ h (QuotientGroup.mk' φ.ker p) := by rfl
   rw [r4] at r3
-  have r5 : ∃ b : G⧸φ.ker, (lift φ.ker φ h) b = m := by exact exists_mk.mpr r1
+  have r5 : ∃ b : G⧸φ.ker, lift φ.ker φ h b = m := by exact exists_mk.mpr r1
   exact r5
 
   done
@@ -136,10 +136,11 @@ theorem T2 {G H : Type} [Group G] [Group H] (φ : G →* H) (h : ∀ x, x ∈ φ
 -- Show that there exists an injective group homomorphism ψ : G/ker(φ) → H, with range(ψ) = range(φ)
 -- This is essentially the first isomorphism theorem for groups, stating that G/ker(φ) ≅ range(φ)
 
-theorem T {G H : Type} [Group G] [Group H] (φ : G →* H) : ∃ ψ : G⧸φ.ker →* H, Injective ψ ∧ (ψ.range = φ.range) := by
+theorem T {G H : Type} [Group G] [Group H] (φ : G →* H) :
+    ∃ ψ : G⧸φ.ker →* H, Injective ψ ∧ ψ.range = φ.range := by
 
   -- Prove the hypothesis we need to define the lift
-  have h : ∀ x, x ∈ φ.ker → φ x = 1 := by exact fun x a => a
+  have h (x : G) (hx : x ∈ φ.ker) : φ x = 1 := hx
 
   use lift φ.ker φ h
 
