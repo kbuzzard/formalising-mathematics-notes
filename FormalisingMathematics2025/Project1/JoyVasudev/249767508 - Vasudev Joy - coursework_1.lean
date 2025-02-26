@@ -55,7 +55,7 @@ theorem steinitz_exchange (hu_in : u ∈ span K X) (hv : v ∈ X) (hu_n_in : u �
   -/
   rw [span_eq_span] <;> rw [subset_def]
 
-  · simp
+  · simp only [SetLike.mem_coe]
     /-
     Case 1: Span X ⊆ Span Y ↔ X ⊆ Span Y
     We assume x is in X and show it is in Span Y by breaking down into two cases:
@@ -69,8 +69,7 @@ theorem steinitz_exchange (hu_in : u ∈ span K X) (hv : v ∈ X) (hu_n_in : u �
 
     /- chnage hx : x ∈ X to hx : x ∈ X \ {v} ∨ x = v
     has to be a better way to do this, its kind of simple -/
-    have hX_split : X = (X \ {v}) ∪ {v} := by
-      rw [diff_union_self, union_comm, singleton_union, insert_eq_of_mem hv]
+    have hX_split : X = (X \ {v}) ∪ {v} := (Set.diff_union_of_subset (by simpa)).symm
 
     rw [hX_split] at hx
 
@@ -92,21 +91,19 @@ theorem steinitz_exchange (hu_in : u ∈ span K X) (hv : v ∈ X) (hu_n_in : u �
       rw [span_union, mem_sup, h]
       -- now the goal is a lot like what the lemma tells us so we use it
       obtain ⟨c, α, hα, hc, hu_eq_cav⟩ :
-          ∃ (c : V) (α : K), α ≠ 0 ∧ c ∈ span K (X \ {v}) ∧ u = c + α • v := by
-        exact v_lin_comb v u X hu_in hv hu_n_in
+          ∃ (c : V) (α : K), α ≠ 0 ∧ c ∈ span K (X \ {v}) ∧ u = c + α • v :=
+        v_lin_comb v u X hu_in hv hu_n_in
         -- help from kind xena users: Ben @undefined2338 and Dirichlet @thedirichlet
 
       -- create witnesses to close the goal
       let y' := -(1/α) • c
       let z' := (1/α) • u
 
-      have hy_in : y' ∈ span K (X \ {v}) := by
-        -- closed using exact?
-        exact smul_mem (span K (X \ {v})) (-(1 / α)) hc
+      have hy_in : y' ∈ span K (X \ {v}) := smul_mem _ _ hc
 
       have hz_in : z' ∈ span K {u} := by
         rw [mem_span_singleton]
-        use 1/α
+        use 1 / α
 
       use y', hy_in, z', hz_in
       -- simple calculation to close the goal
@@ -115,7 +112,7 @@ theorem steinitz_exchange (hu_in : u ∈ span K X) (hv : v ∈ X) (hu_n_in : u �
         _ = -(1/α) • c + (1/α) • (c + α • v) := by rw [hu_eq_cav]
         _ = -(1/α) • c + (1/α) • c + (1/α) • α • v := by simp
         _ = α⁻¹ • α • v := by simp
-        _ = v := by rw [smul_smul, mul_comm, Field.mul_inv_cancel, one_smul] ; exact hα
+        _ = v := by rw [smul_smul, mul_comm, Field.mul_inv_cancel, one_smul]; exact hα
 
   · simp
     /-
@@ -142,13 +139,40 @@ theorem steinitz_exchange (hu_in : u ∈ span K X) (hv : v ∈ X) (hu_n_in : u �
       rw [h]
       exact hu_in
 
+-- BM: I added α ≠ 0 and v ∈ Y to this lemma, I think they're both needed.
+-- If `α = 0`, then the RHS is too small (take Y a basis of V \ span {v}, that should give a
+-- counterexample)
+-- If `v ∉ Y` then it might not be in the LHS but it will be in the RHS (same counterexample I
+-- think).
+
+lemma span_replaced_scal_mul (Y : Set V) (hY_fin : Y.Finite) (α : K) (v : V) (hα : α ≠ 0)
+    (hvnot0 : v ≠ 0) (hvmem : v ∈ Y) :
+    span K Y = span K (Y \ {v} ∪ {α • v}) := by
+  rw [span_eq_span]
+  · intro y hy
+    simp only [union_singleton, SetLike.mem_coe]
+    obtain rfl | hyv := eq_or_ne y v
+    · have : α • y ∈ span K (insert (α • y) (Y \ {y})) := subset_span (by simp)
+      rwa [smul_mem_iff _ hα] at this
+    · apply subset_span
+      simp [hyv, hy]
+  · simp only [union_singleton, insert_subset_iff, SetLike.mem_coe, diff_singleton_subset_iff]
+    constructor
+    · exact smul_mem (span K Y) α (subset_span hvmem)
+    · intro y hy
+      exact mem_insert_of_mem _ (subset_span hy)
+
+-- BM: I added the assumption hY_fin here to prove it. I'm pretty certain that assumptoin is needed,
+-- as otherwise you could have Y = V (formally speaking, Y = Set.univ), and then no choice of α
+-- can work
 variable [Infinite K]
-
-lemma exists_scal_mul (hX_fin : X.Finite) (Y : Set V) (x : V) (hxnot0 : x ≠ 0) :
-    ∃ α : K, α ≠ 1 ∧ (α • x ∉ X) ∧ (α • x ∉ Y) := by sorry
-
-lemma span_replaced_scal_mul (Y : Set V) (hY_fin : Y.Finite) (α : K) (v : V) (hvnot0 : v ≠ 0):
-    span K (Y) = span K (Y \ {v} ∪ {α • v}) := by sorry
+lemma exists_scal_mul (hX_fin : X.Finite) (Y : Set V) (hY_fin : Y.Finite) (x : V) (hxnot0 : x ≠ 0) :
+    ∃ α : K, α ≠ 1 ∧ (α • x ∉ X) ∧ (α • x ∉ Y) := by
+  have : (insert (1 : K) ((· • x) ⁻¹' (X ∪ Y))).Finite :=
+    ((hX_fin.union hY_fin).preimage (smul_left_injective K hxnot0).injOn).insert 1
+  obtain ⟨α, hα⟩ := this.infinite_compl.nonempty
+  use α
+  simpa using hα
 
 lemma induction_step_left (hv_n_in : v ∉ X) (hX_fin : X.Finite) (Y' : Set V)
     (hY'_fin : Y'.Finite) (h_span_eq : span K X = span K Y') (h_inter_empty : X ∩ Y' = ∅)
@@ -162,12 +186,14 @@ lemma induction_step_left (hv_n_in : v ∉ X) (hX_fin : X.Finite) (Y' : Set V)
     -- I go from insert v X ⊆ ↑(span K X) to span K (insert v X) ⊆ ↑(span K X)
     -- and then from span K (insert v X) ⊆ ↑(span K X) to span K (insert v X) = span K X
     -- then I use h_span_eq to close the goal
-    sorry
+    rw [← h_span_eq]
+    apply le_antisymm
+    · rwa [span_le]
+    · exact span_mono (subset_insert _ _)
 
   -- use the exists_scal_mul lemma to get a scalar α such that α • v ∉ Y'
-  obtain ⟨α, hα_neq, hα_ninY', hα_ninX⟩ : ∃ α : K, α ≠ 1 ∧ α • v ∉ Y' ∧ α • v ∉ X := by
-    apply exists_scal_mul Y' hY'_fin X
-    exact hvnot0
+  obtain ⟨α, hα_neq, hα_ninY', hα_ninX⟩ : ∃ α : K, α ≠ 1 ∧ α • v ∉ Y' ∧ α • v ∉ X :=
+    exists_scal_mul Y' hY'_fin X hX_fin v hvnot0
 
   -- create witness
   let u := α • v
@@ -181,11 +207,14 @@ lemma induction_step_left (hv_n_in : v ∉ X) (hX_fin : X.Finite) (Y' : Set V)
 
   -- prove that Span Y' = Span Y
   have h_span_YeqY' : span K Y' = span K Y := by
-    exact span_replaced_scal_mul Y' hY'_fin α v hvnot0
+    exact span_replaced_scal_mul Y' hY'_fin α v sorry hvnot0 sorry
+    -- BM: first one looks like a missing assumption
+    -- second one I didn't think about properly
   have h_span_vXeqY : span K (insert v X) = span K Y :=
     h_span_vXeqY'.trans h_span_YeqY' -- suggested by Fangming Li
 
   -- prove that X ∩ Y = ∅
+  -- BM: a more common way of writing this is Disjoint X Y
   have hvXintY : insert v X ∩ Y = ∅ := by
     rw [insert_eq, union_inter_distrib_right]
     rw [inter_union_distrib_left, inter_union_distrib_left, diff_eq_compl_inter]
