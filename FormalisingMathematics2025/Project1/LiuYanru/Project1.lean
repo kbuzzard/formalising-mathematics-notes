@@ -41,17 +41,20 @@ def continuous_on (f : ℝ → ℝ) (a b : ℝ) : Prop :=
 
 -- Lemma handling the case where f(a) < c < f(b)
 lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
-(hab : a ≤ b) (hf : continuous_on f a b) (c : ℝ)
-  (hfa_c_fb : f a < c ∧ c < f b) : ∃ x ∈ Set.Icc a b, f x = c := by
+    (hab : a ≤ b) (hf : continuous_on f a b) (c : ℝ)
+    (hfa_c_fb : f a < c ∧ c < f b) : ∃ x ∈ Set.Icc a b, f x = c := by
 
   -- Define the set S_c as all y in [a, b] where f(y) < c
   let S_c : Set ℝ := {y | a ≤ y ∧ y ≤ b ∧ f y < c}
   -- Show that a is in S_c, establishing S_c is non-empty
   have h_a_in_S_c : a ∈ S_c := by
-    simp [S_c]
+    simp only [mem_setOf_eq, le_refl, true_and, S_c]
+    -- this was a nonterminal simp, don't have those!
     constructor
     · exact hab  -- a ≤ a (trivially true)
     · exact hfa_c_fb.1  -- f(a) < c
+    -- you could also have fixed this with
+    -- simp [S_c, *]
   have h_S_c_nonempty : S_c.Nonempty := by
     use a  -- Since a ∈ S_c, S_c is non-empty
   -- Establish that S_c is bounded above by b
@@ -60,13 +63,13 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
     intro y hy
     exact hy.2.1  -- y ≤ b from the definition of S_c
   -- Obtain the least upper bound (supremum) of S_c using completeness of real numbers
-  obtain ⟨x, hx⟩ : ∃ x, IsLUB S_c x := by
-    apply Real.exists_isLUB (s := S_c) (hne := h_S_c_nonempty) (hbdd := h_S_c_bdd_above)
+  obtain ⟨x, hx⟩ : ∃ x, IsLUB S_c x :=
+    Real.exists_isLUB h_S_c_nonempty h_S_c_bdd_above
   -- Show x is within [a, b]
   have hx_mem : x ∈ Icc a b := by
     constructor
     · exact hx.1 h_a_in_S_c  -- a ≤ x (since x is an upper bound and a ∈ S_c)
-    · exact hx.2 (fun y hy => hy.2.1)  -- x ≤ b (since all y ∈ S_c are ≤ b)
+    · exact hx.2 (fun y hy ↦ hy.2.1)  -- x ≤ b (since all y ∈ S_c are ≤ b)
   -- Prove f(x) = c by contradiction using continuity and supremum properties
   have h_fx_eq_c : f x = c := by
     apply le_antisymm
@@ -90,24 +93,22 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
           · rcases hx_mem with ⟨hx_left, hx_right⟩
             cases' le_total a (x - δ / 2) with h h <;>
               simp_all [max_eq_left, max_eq_right, sub_le_iff_le_add]
-            ; linarith  -- Verify max a (x - δ/2) ≤ b
+            linarith  -- Verify max a (x - δ/2) ≤ b
         · constructor
           · rcases hx_mem with ⟨hx_left, hx_right⟩
             cases' le_total a (x - δ / 2) with h h <;>
-              simp_all [sup_eq_left.mpr h, sup_eq_right.mpr h, sub_nonneg, sub_nonpos]
-            <;>
+              simp_all [sup_eq_left.mpr h, sup_eq_right.mpr h, sub_nonneg, sub_nonpos] <;>
             linarith  -- Verify |max a (x - δ/2) - x| < δ
           · rcases hx_mem with ⟨hx_left, hx_right⟩
             cases' le_total a (x - δ / 2) with h h <;>
               simp_all [max_eq_left, max_eq_right, sub_lt_iff_lt_add]
-            ;
             linarith  -- Verify |x - max a (x - δ/2)| < δ
       -- Show max a (x - δ / 2) < x
       have h_max_lt_x : max a (x - δ / 2) < x := by
         have hδ_half_pos : 0 < δ / 2 := by linarith
         have h_sub_lt : x - δ / 2 < x := by linarith
         cases' le_total a (x - δ / 2) with h h <;>
-        simp_all [max_eq_left, max_eq_right, sub_lt_iff_lt_add]
+        simp_all
         have h_a_lt_x : a < x := by
           by_contra h_a_ge_x
           have h_a_eq_x : a = x := by linarith [hx_mem.1, hx_mem.2]
@@ -123,7 +124,6 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
             rw [abs_of_nonpos (sub_nonpos.mpr h_le)]
             linarith [hδ_pos]
           | inr h_le =>
-            exfalso
             linarith [h_lt_x]
         have h_fm_fx_lt_ε : |f (max a (x - δ / 2)) - f x| < ε := hδ _ h_m_in_ball
         linarith [abs_sub_lt_iff.mp h_fm_fx_lt_ε]
@@ -181,7 +181,7 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
       let y := x + (1/2) * min δ (b - x)
       -- Show y ∈ S_c
       have h_y_in_S_c : y ∈ S_c := by
-        simp [S_c]
+        simp [S_c] -- another nonterminal simp
         constructor
         · -- Verify a ≤ y
           have h_a_le_x : a ≤ x := hx_mem.1
@@ -189,11 +189,8 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
             apply le_min
             · linarith [hδ_pos]  -- δ ≥ 0
             · linarith [h_x_lt_b]  -- b - x > 0
-          apply le_trans h_a_le_x
-          apply le_add_of_nonneg_right
-          apply mul_nonneg
-          · norm_num
-          · exact h_min_nonneg
+          refine le_trans h_a_le_x (le_add_of_nonneg_right ?_)
+          positivity
         · constructor
           · -- Verify y ≤ b
             have h_min_le : min δ (b - x) ≤ b - x := by
@@ -203,7 +200,7 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
               _ ≤ x + 1 / 2 * (b - x) := by gcongr
               _ = x + (b - x) / 2 := by ring
               _ = (x + b) / 2 := by ring
-              _ ≤ b := by linarith [h_x_lt_b]
+              _ ≤ b := by linarith [h_x_lt_b] -- nice!
           · -- Verify f(y) < c
             have h_y_near_x : |y - x| < δ := by
               unfold y
@@ -240,15 +237,14 @@ lemma exists_eq_c_of_continuous_on_interval (f : ℝ → ℝ) (a b : ℝ)
 
 -- Main theorem: Intermediate Value Theorem
 theorem intermediate_value_theorem (f : ℝ → ℝ) (a b : ℝ) (hab : a ≤ b) (hf : continuous_on f a b) :
-  ∀ c ∈ Set.Icc (min (f a) (f b)) (max (f a) (f b)), ∃ x ∈ Set.Icc a b, f x = c := by
+    ∀ c ∈ Set.Icc (min (f a) (f b)) (max (f a) (f b)), ∃ x ∈ Set.Icc a b, f x = c := by
   intro c hc
   -- Handle trivial cases where c equals f(a) or f(b)
   by_cases h : f a = c ∨ f b = c
   · cases h with
     | inl hfa_eq_c =>
       -- If c equals f(a), then x = a satisfies the theorem
-      have ha_mem : a ∈ Icc a b := by
-        refine ⟨le_refl a, hab⟩
+      have ha_mem : a ∈ Icc a b := ⟨le_refl a, hab⟩
       exact ⟨a, ha_mem, hfa_eq_c⟩
     | inr hfb_eq_c =>
       -- If c equals f(b), then x = b satisfies the theorem
