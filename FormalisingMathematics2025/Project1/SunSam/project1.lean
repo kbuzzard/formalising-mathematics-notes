@@ -5,6 +5,7 @@ open Set
 /-
 首先，定义序列为自然数到实数的函数。
 -/
+-- English please!
 
 def Sequence := ℕ → ℝ
 
@@ -28,40 +29,41 @@ def Sequence.bounded (a : Sequence) : Prop := a.abs.bounded_above
 if and only if it is bounded both above and below. -/
 theorem bounded_iff_above_below {a : Sequence} : a.bounded ↔ a.bounded_above ∧ a.bounded_below := by
   constructor
+  -- Make sure to use · when you have multiple goals.
   -- 证明必要性：绝对值有界蕴含上下界有界
-  intro hb
+  · intro hb
   -- 分解绝对值有界的假设，得到界M和对应的性质hM
-  cases' hb with M hM
-  constructor
-  -- 构造上界的存在性证明
-  use M
-  intro n
-  -- 应用le_of_abs_le定理，由|s n| ≤ M推导s n ≤ M
-  exact le_of_abs_le (hM n)
-  -- 构造下界的存在性证明
-  use -M
-  intro n
-  -- 应用neg_le_of_abs_le定理，由|s n| ≤ M推导-M ≤ s n
-  exact neg_le_of_abs_le (hM n)
-  -- 证明充分性：上下界有界蕴含绝对值有界
-  rintro ⟨ha, hb⟩
-  -- 分解上下界有界的假设，得到上界M和下界m，及其对应的性质hM和hm
-  cases' ha with M hM
-  cases' hb with m hm
-  -- 使用max M (-m)作为共同的界
-  use max M (-m)
-  intro n
-  -- 分情况讨论s n的正负性
-  by_cases h : a n ≤ 0
-  -- 情况1：s n ≤ 0
-  rw [seq_abs_eq, abs_of_nonpos h]
-  -- 应用le_max_of_le_right定理，由-M ≤ s n推导|s n| ≤ max M (-m)
-  exact le_max_of_le_right (neg_le_neg (hm n))
-  -- 情况2：s n > 0
-  push_neg at h
-  rw [seq_abs_eq,  abs_of_pos h]
-  -- 应用le_max_of_le_left定理，由s n ≤ M推导|s n| ≤ max M (-m)
-  exact le_max_of_le_left (hM n)
+    cases' hb with M hM
+    constructor
+    -- 构造上界的存在性证明
+    · use M
+      intro n
+      -- 应用le_of_abs_le定理，由|s n| ≤ M推导s n ≤ M
+      exact le_of_abs_le (hM n)
+    -- 构造下界的存在性证明
+    · use -M
+      intro n
+      -- 应用neg_le_of_abs_le定理，由|s n| ≤ M推导-M ≤ s n
+      exact neg_le_of_abs_le (hM n)
+      -- 证明充分性：上下界有界蕴含绝对值有界
+  · rintro ⟨ha, hb⟩
+    -- 分解上下界有界的假设，得到上界M和下界m，及其对应的性质hM和hm
+    cases' ha with M hM
+    cases' hb with m hm
+    -- 使用max M (-m)作为共同的界
+    use max M (-m)
+    intro n
+    -- 分情况讨论s n的正负性
+    by_cases h : a n ≤ 0
+    · -- 情况1：s n ≤ 0
+      rw [seq_abs_eq, abs_of_nonpos h]
+      -- 应用le_max_of_le_right定理，由-M ≤ s n推导|s n| ≤ max M (-m)
+      exact le_max_of_le_right (neg_le_neg (hm n))
+    · -- 情况2：s n > 0
+      push_neg at h
+      rw [seq_abs_eq,  abs_of_pos h]
+      -- 应用le_max_of_le_left定理，由s n ≤ M推导|s n| ≤ max M (-m)
+      exact le_max_of_le_left (hM n)
 
 
 /-
@@ -81,6 +83,7 @@ def CauchySequence (a : Sequence) :=
 
 noncomputable def sequence_set (a : Sequence) (n : ℕ) : Finset ℝ :=
   (Multiset.map a (Multiset.range n)).toFinset
+  -- This would also have worked: `(Finset.range n).image a`
 
 @[simp] theorem mem_sequence_set {a : Sequence} {n : ℕ} {x : ℝ} :
   x ∈ sequence_set a n ↔ ∃ k, k < n ∧ a k = x := by
@@ -90,19 +93,18 @@ theorem sequence_set_nonempty (a : Sequence) {n : ℕ} (hn : n > 0) : (sequence_
   ⟨a 0, mem_sequence_set.mpr ⟨0, hn, rfl⟩⟩
 
 theorem sequence_set_max (a : Sequence) {n : ℕ} (hn : n > 0) :
-  ∃ m, m < n ∧ ∀ k < n, a k ≤ a m := by
+    ∃ m, m < n ∧ ∀ k < n, a k ≤ a m := by
   let fs := sequence_set a n
-  have hM := mem_sequence_set.mp (fs.max'_mem (sequence_set_nonempty a hn))
-  cases' hM with m hm
+  obtain ⟨m, hm⟩ := mem_sequence_set.mp (fs.max'_mem (sequence_set_nonempty a hn))
   use m
   constructor
-  exact hm.1
+  · exact hm.1
   intro k hk
   rw [hm.2]
   exact fs.le_max' (a k) (mem_sequence_set.mpr ⟨k, hk, rfl⟩)
 
 theorem sequence_set_min (a : Sequence) {n : ℕ} (hn : n > 0) :
-  ∃ m, m < n ∧ ∀ k < n, a m ≤ a k := by
+    ∃ m, m < n ∧ ∀ k < n, a m ≤ a k := by
   rcases sequence_set_max (-a) hn with ⟨M, Mpos, hM⟩
   use M
   constructor
@@ -112,7 +114,7 @@ theorem sequence_set_min (a : Sequence) {n : ℕ} (hn : n > 0) :
     exact neg_le_neg_iff.mp hM
 
 theorem sequence_set_bounded (a: Sequence) {n: ℕ} (hn : n > 0) :
-  ∃ M, ∀ k < n, |a k| ≤ M := by
+    ∃ M, ∀ k < n, |a k| ≤ M := by
   rcases sequence_set_max a hn with ⟨M₀, Mpos₀, hM₀⟩
   rcases sequence_set_min a hn with ⟨M₁, Mpos₁, hM₁⟩
   use max (a M₀) (- a M₁)
@@ -149,11 +151,11 @@ lemma cauchy_bounded {a : Sequence}: CauchySequence a → a.bounded := by
   -- 对于任意自然数n，我们考虑其与N的关系
   cases' le_or_lt N n with h₀ h₀
   · specialize h1 n h₀
-    simp_all [abs_of_nonneg, abs_of_nonpos, sub_nonneg, sub_nonpos];
+    simp_all only [gt_iff_lt, ge_iff_le, seq_abs_eq, le_sup_iff]
     right
     linarith
   · specialize hM n h₀
-    simp_all [abs_of_nonneg, abs_of_nonpos, sub_nonneg, sub_nonpos];
+    simp_all [abs_of_nonneg, abs_of_nonpos, sub_nonneg, sub_nonpos]
 
 /-
 证明柯西序列收敛。
@@ -179,7 +181,7 @@ noncomputable def b_n {a : Sequence} (h : CauchySequence a) : ℕ → ℝ := fun
 
 lemma b_n_ge_a_i {a : Sequence} (h : CauchySequence a) : ∀ n i, i ≥ n → b_n h n ≥ a i := by
   intro n i hi
-  have h1: a.bounded := cauchy_bounded h
+  have h1 : a.bounded := cauchy_bounded h
   /- Since `b_n` is defined as the supremum of the set `{a_i | i ≥ n}`,
    we need to show that `a_i` is in this set.-/
   have h1 : a i ∈ Set.range (fun i : ℕ => a (n + i)) := by
@@ -190,7 +192,7 @@ lemma b_n_ge_a_i {a : Sequence} (h : CauchySequence a) : ∀ n i, i ≥ n → b_
   -- By the definition of supremum, `b_n` is an upper bound for the set `{a_i | i ≥ n}`.
   -- Therefore, `b_n` is greater than or equal to any element in this set, including `a_i`.
   have h_bdd_above : BddAbove (Set.range (fun i : ℕ => a (n + i))) := by
-    have h2: a.bounded := cauchy_bounded h
+    have h2 : a.bounded := cauchy_bounded h
     rcases h2 with ⟨B, hB⟩
     use B
     intro x rx
@@ -203,7 +205,7 @@ lemma b_n_ge_a_i {a : Sequence} (h : CauchySequence a) : ∀ n i, i ≥ n → b_
 
 theorem cauchy_converges {a : Sequence} (h : CauchySequence a) : ∃ L : ℝ, ConvergesTo a L := by
   -- 使用实数的完备性，这里简化为存在极限。
-  have h1: a.bounded := cauchy_bounded h
+  have h1 : a.bounded := cauchy_bounded h
   let b := b_n h
   -- 定义 `b_n = sup {a_i | i ≥ n}`
   have h_monotone : ∀ m n, m ≤ n → b m ≥ b n := by
@@ -252,8 +254,7 @@ theorem cauchy_converges {a : Sequence} (h : CauchySequence a) : ∃ L : ℝ, Co
     have h6 : ∀ n : ℕ, b n ≥ b (n + 1) := by
       intro n'
       specialize h5 n'
-      specialize h4 n'
-      rw [h4] at h5
+      rw [h4 n'] at h5
       exact h5
     have ⟨k, hk⟩ := Nat.exists_eq_add_of_le hmn  -- 分解得到k和等式hk : n = m + k
     rw [hk] at hmn ⊢
