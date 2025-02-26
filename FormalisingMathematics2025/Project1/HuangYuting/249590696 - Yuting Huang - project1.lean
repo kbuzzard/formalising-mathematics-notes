@@ -58,26 +58,19 @@ variable [MulAction G X]
 
 /--Representation G → ℂ[X], where ℂ[X] = {∑_{x∈X} aₓx | aₓ ∈ ℂ} and G acts on ℂ[X] by
 left multimplication-/
+@[simps]
 def rep_G_on_CX : Representation ℂ G (X → ℂ) where
-  toFun := fun g => {
-    toFun := fun a => a ∘ (fun x ↦ g⁻¹ • x)
-    map_add' := by
-      intro a b
-      ext x
-      dsimp
-    map_smul' := by
-      intro r a
-      ext y
-      simp
+  toFun g := {
+    toFun a x := a (g⁻¹ • x)
+    map_add' a b := rfl
+    map_smul' r a := rfl
   }
   map_one' := by
     ext a
     simp
-  map_mul' := by
-    intro g h
+  map_mul' g h := by
     ext a x
-    simp
-    rw [mul_smul]
+    simp [mul_smul]
 
 -- Now we use `ℂ` instead of `k` for the field
 variable {V : Type} [AddCommGroup V] [Module ℂ V] (ρ : Representation ℂ G V)
@@ -86,42 +79,17 @@ open BigOperators
 
 /--A homomorphism ℂ[G] → V given by T(g) = ρ(g)v, where v ∈ V-/
 def Hom_CG_V (v : V): RepMap (rep_G_on_CX G) ρ where
-  toFun := fun a ↦ ∑ g : G, a g • (ρ g) v
-  map_add' := by
-    intro a b
+  toFun a := ∑ g : G, a g • ρ g v
+  map_add' a b := by simp [add_smul, Finset.sum_add_distrib]
+  map_smul' r a := by simp [Finset.smul_sum, mul_smul]
+  map_apply g a := by
+    simp only [LinearMap.coe_mk, AddHom.coe_mk, rep_G_on_CX_apply_apply, smul_eq_mul, map_sum,
+      map_smul]
+    apply Fintype.sum_bijective (fun h ↦ g⁻¹ • h) (MulAction.bijective g⁻¹)
+    intro x
+    have h2 : ρ g (ρ (g⁻¹ • x) v) = (ρ g * ρ (g⁻¹ • x)) v := rfl
+    rw [h2, ← map_mul ρ]
     simp
-    rw [← Finset.sum_add_distrib]
-    congr! 1 with g
-    exact add_smul (a g) (b g) ((ρ g) v)
-  map_smul' := by
-    intro r a
-    simp
-    rw [Finset.smul_sum]
-    congr! 1 with g
-    exact mul_smul r (a g) ((ρ g) v)
-  map_apply := by
-    intro g a
-    simp
-    apply Finset.sum_bij (fun h _ => g⁻¹ • h)
-    · intro a _
-      simp
-    · intro x _ h _ h3
-      have h4: g• (g⁻¹ • x) = g• (g⁻¹ • h):= by rw [h3]
-      simp at h4
-      exact h4
-    · intro b _
-      use g • b
-      simp
-    · intro x _
-      have h1: rep_G_on_CX G g a x = a (g⁻¹ • x) := rfl
-      rw [h1]
-      have h2 : (ρ g) ((ρ (g⁻¹ • x)) v) = ((ρ g) * ρ (g⁻¹ • x)) v := by
-        exact rfl
-      rw [h2]
-      have h3 : g⁻¹ • x = g⁻¹ * x := by simp
-      rw [h3]
-      rw [← MonoidHom.map_mul ρ g (g⁻¹ * x)]
-      simp
 
 open Classical
 
@@ -133,17 +101,9 @@ variable (g : G)
 @[simp]
 lemma Hom_singleton : (Hom_CG_V ρ v) (Pi.single g 1) = (ρ g) v := by
   rw [← coe_repMap]
-  simp [Hom_CG_V]
-  rw [Finset.sum_eq_single g]
-  · simp
-  · intro h h1 h2
-    rw [Pi.single_eq_of_ne]
-    rw [zero_smul]
-    exact h2
-  · intro h
-    exfalso
-    apply h
-    exact Finset.mem_univ g
+  simp only [Hom_CG_V, LinearMap.coe_mk, AddHom.coe_mk]
+  rw [Finset.sum_eq_single g (by simp +contextual) (by simp)]
+  simp
 
 /--∃! homomorphism of representations ℂ[G] → V sending e ∈ G ⊆ ℂ[G] to v ∈ V-/
 theorem exists_unique_hom_v : ∃! T : RepMap (rep_G_on_CX G) ρ, T (Pi.single 1 1) = v := by
@@ -151,20 +111,19 @@ theorem exists_unique_hom_v : ∃! T : RepMap (rep_G_on_CX G) ρ, T (Pi.single 1
   constructor
   · simp
   · intro T hT
-    simp [RepMap.eq_iff]
+    simp only [RepMap.eq_iff]
     -- real proof starts here
-    let b : Basis G ℂ  _ := Pi.basisFun ℂ G
+    let b : Basis G ℂ _ := Pi.basisFun ℂ G
     apply b.ext
     intro g
     rw [Pi.basisFun_apply]
-    simp
+    simp only [coe_repMap, Hom_singleton]
     show T (b g) = _
-    have h1: b g = rep_G_on_CX G g (b 1) := by
+    have h1 : b g = rep_G_on_CX G g (b 1) := by
       ext x
-      simp [b, rep_G_on_CX ]
-      rw [Pi.single_apply, Pi.single_apply, inv_mul_eq_one (G := G), eq_comm (α := G)]
-    rw [h1, ← coe_repMap, T.map_apply]
-    congr
+      simp [b, Pi.single_apply, inv_mul_eq_one, eq_comm]
+    rw [h1, ← coe_repMap, T.map_apply, ← hT]
+    rfl
 
 -- Example: all of the homomorphisms ℂ[G] → v are of this form
 lemma Hom_CG_V_inv (T : RepMap (rep_G_on_CX G) ρ) : ∃ (v : V), T = Hom_CG_V ρ v := by
@@ -175,14 +134,11 @@ lemma Hom_CG_V_inv (T : RepMap (rep_G_on_CX G) ρ) : ∃ (v : V), T = Hom_CG_V �
   · simp
 
 /-- Bijection between Hom(ℂ[G],V) and V-/
-noncomputable def bijection_CG_V : Equiv (RepMap (rep_G_on_CX G) ρ) V where
-  toFun := fun T => T (Pi.single 1 1)
-  invFun := fun v => Hom_CG_V ρ v
-  left_inv := by
-    intro T
+noncomputable def bijection_CG_V : RepMap (rep_G_on_CX G) ρ ≃ V where
+  toFun T := T (Pi.single 1 1)
+  invFun v := Hom_CG_V ρ v
+  left_inv T := by
     obtain ⟨v, hTv⟩ := Hom_CG_V_inv ρ T
     rw [hTv]
     simp
-  right_inv := by
-    intro v
-    simp
+  right_inv v := by simp
