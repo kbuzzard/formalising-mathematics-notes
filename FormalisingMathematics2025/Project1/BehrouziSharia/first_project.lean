@@ -26,19 +26,19 @@ all vertices of even degrees.
 -/
 
 universe u
-open Set SimpleGraph Classical Path
-variable (V :Type) (G : SimpleGraph V)
+open Finset Set SimpleGraph Classical Path
+variable {V :Type} (G : SimpleGraph V)
 variable (x y v : V)
 variable [DecidableRel G.Adj]
 
 -- Base case of the `exists_eulerian_circuit`
 lemma IsEulerian.nil {G : SimpleGraph V} [DecidableEq V] [Fintype V]
-    [DecidableRel G.Adj] {v : V} (h: Finset.card G.edgeFinset = Nat.zero):
-    (SimpleGraph.Walk.nil : G.Walk v v).IsEulerian := by
-  have hEmp : SimpleGraph.edgeSet G = ∅ := by
-    rw[Finset.card_eq_zero] at h
-    -- The finset of a set is empty iff the set is also empty
-    exact toFinset_eq_empty.mp h
+    [DecidableRel G.Adj] {v : V} (h: #G.edgeFinset = 0):
+    (Walk.nil : G.Walk v v).IsEulerian := by
+  -- The finset of a set is empty iff the set is also empty
+  have hEmp : edgeSet G = ∅ := by
+    rw [Finset.card_eq_zero] at h
+    simpa using h
 
   -- take an arbitrary edge w from the walk
   -- hw : w is in the edge set of G
@@ -47,49 +47,39 @@ lemma IsEulerian.nil {G : SimpleGraph V} [DecidableEq V] [Fintype V]
   -- from False any proposition holds
   exact hw.elim
 
-/-- This lemma is not generally true, we can use it here
+/-- This lemma is generally true, we can use it here
   because we know the graphs G₁ won't be empty, This is because
   in the inductive case, we use the lemma (IsEulerian.has_vert_if_rem_still_conn)
   which says the graph G will still be connected after removing the
   vertex vertNotDiscon, in Lean "Connected" means preconnected and
   non-empty, hence the resulting graph after deleting vertNotDiscon (with
   its incident edges) will be still connected -/
-lemma connected_when_subgraph_preconnected {G G₁ G₂ : SimpleGraph V}
-    (v₁ : G.support) (hG₁SubG₂ : G₁ ≤ G₂)
-    (hG₁Precon : G₁.Preconnected) : G₂.Connected := by
-  -- a graph is connected iff there is vertex that is reachable
-  -- by other vertices
-  rw[connected_iff_exists_forall_reachable]
-  use v₁
-  -- G₂ is also preconnected
-  have hG₂Precon : G₂.Preconnected := by
-    -- G₁ ≤ G₂ and G₁ is preconnected hence G₂ is preconnected
-    exact Preconnected.mono hG₁SubG₂ hG₁Precon
-
-  rw [Preconnected] at hG₂Precon
-  -- every vertex is reachable in G₂ from v₁
-  intro vReach
-  exact hG₂Precon v₁ vReach
-  -- specialize hG₂Precon v₁
-  -- -- take an arbitrary vertex vReach
-  -- intro vReach
-  -- specialize hG₂Precon vReach
-  -- exact hG₂Precon
+lemma connected_when_subgraph_preconnected {G₁ G₂ : SimpleGraph V}
+    (v₁ : V) (hG₁SubG₂ : G₁ ≤ G₂)
+    (hG₁Precon : G₁.Preconnected) : G₂.Connected where
+  preconnected := hG₁Precon.mono hG₁SubG₂
+  nonempty := ⟨v₁⟩
 
 /-- Given a connected graph, with two or more vertices
   The graph has a vertex that can be removed (along with its incident edges)
   without disconnecting the remaining graph -/
-lemma IsEulerian.has_vert_if_rem_still_conn {G : SimpleGraph V} {v : V}
-    [Fintype V] [DecidableEq V] :
-    (G.Connected ∧ Fintype.card G.edgeFinset ≥ 2) →
+lemma IsEulerian.has_vert_if_rem_still_conn {G : SimpleGraph V} (v : V)
+    [Fintype V] [DecidableEq V] (hGconn : G.Connected) (hVertCardCount : 2 ≤ #G.edgeFinset) :
+    -- BM comments:
+    -- p ∧ q → r is equivalent to p → q → r, and then might as well put stuff before
+    -- the colon
+    -- Fintype.card takes the cardinality of the *type*, you want to take the cardinality of the
+    -- *finset*, so Finset.card is better. And Finset.card has # notation.
     ∃ v : G.support, (G.induce (fun v' : V ↦ v' ≠ v)).Connected := by
-
-  rintro ⟨hGconn, hVertCardCount⟩
   sorry
 
 /-- Generate a new graph give graph G and add a vertex between u and v -/
-def add_edge (G : SimpleGraph V) (u v : V) : SimpleGraph V :=
+def addEdge (G : SimpleGraph V) (u v : V) : SimpleGraph V :=
   .fromEdgeSet (insert s(u, v) G.edgeSet)
+
+lemma le_addEdge (G : SimpleGraph V) (u v : V) : G ≤ addEdge G u v := by
+  intro x y h
+  simp [addEdge, h, h.ne]
 
 theorem IsEulerian.exists_eulerian_circuit (G : SimpleGraph V)
     [Fintype V]
@@ -111,13 +101,13 @@ theorem IsEulerian.exists_eulerian_circuit (G : SimpleGraph V)
     -- take an empty walk from v₀ to v₀
     use SimpleGraph.Walk.nil
     -- using the base-case (IsEulerian.nil lemma)
-    exact nil V hk
+    exact nil hk
 
   -- inductive case
   | succ k i_k =>
     intro hEvDeg v₁
 
-    have numVertGe2 : Fintype.card G.edgeFinset ≥ 2 := by
+    have numVertGe2 : 2 ≤ #G.edgeFinset := by
       -- let's assume number of edges < 2
       by_contra h
       push_neg at h
@@ -126,22 +116,34 @@ theorem IsEulerian.exists_eulerian_circuit (G : SimpleGraph V)
     /- hVerDelCon is using the lemma that there is
        a vertex such that if we delete it with its
        connecting edges, the graph would still remain connected -/
-    have hVertDelCon : ∃ v : G.support, (G.induce (fun v' : V ↦ v' ≠ v)).Connected  := by
-      apply IsEulerian.has_vert_if_rem_still_conn
-      obtain ⟨v, vInG₁⟩ := v₁
-      exact v
-      simp_all
+    have hVertDelCon : ∃ v : G.support, (G.induce (fun v' : V ↦ v' ≠ v)).Connected :=
+      IsEulerian.has_vert_if_rem_still_conn v₁.1 hGconn numVertGe2
 
     cases' hVertDelCon with vertNotDiscon hVertNotDiscon
 
 
     /- Each vertex is atleast of degree 2, hence
-       there must be atleas4 two edges x and y that
+       there must be at least two *different* vertices x and y that
        are the neighbours of vertNotDiscon -/
     have hTwoNeighbors : ∃ x y : G.support, G.Adj x vertNotDiscon ∧
-        G.Adj y vertNotDiscon := by
-      sorry
-      done
+        G.Adj y vertNotDiscon ∧ x ≠ y := by
+      have : 0 < G.degree vertNotDiscon.1 := by
+        rw [degree_pos_iff_exists_adj, ← mem_support]
+        exact vertNotDiscon.2
+      have : 1 < G.degree vertNotDiscon.1 := by
+        specialize hEvDeg vertNotDiscon
+        rw [Even] at hEvDeg
+        omega
+      rw [degree, one_lt_card_iff] at this
+      simp only [mem_neighborFinset] at this
+      obtain ⟨x, y, hx, hy, hxy⟩ := this
+      refine ⟨⟨x, ?_⟩, ⟨y, ?_⟩, hx.symm, hy.symm, ?_⟩
+      · rw [mem_support]
+        refine ⟨vertNotDiscon, hx.symm⟩
+      · rw [mem_support]
+        refine ⟨vertNotDiscon, hy.symm⟩
+      · contrapose! hxy
+        exact Subtype.ext_iff.1 hxy
 
     -- x and y are adjacent to vertNotDiscon
     rcases hTwoNeighbors with ⟨x, y, hx, hy⟩
@@ -153,26 +155,19 @@ theorem IsEulerian.exists_eulerian_circuit (G : SimpleGraph V)
     set vertyNotDisconEdge := s(yv, vertNotDiscon)
     set G₁ := (G.deleteEdges {vertyNotDisconEdge, vertxNotDisconEdge})
     -- construct a graph G₂ by adding an edge between x and y
-    set G₂ := add_edge V G₁ xv yv
+    set G₂ := addEdge G₁ xv yv
 
     set xyEdge := s(xv, yv)
 
-    have hG₁SubG₂ : G₁ ≤ G₂ := by
-      -- Introduce vertices a, b and their adjacency hypothesis in G₁
-      intro a b hab
-      -- Expand definitions to work with edge sets
-      simp [G₁, G₂, add_edge] at hab ⊢
-      -- Decompose the adjacency hypothesis into its components
-      rcases hab with ⟨habG, habNotDeleted⟩
-      aesop_graph
+    have hG₁SubG₂ : G₁ ≤ G₂ := le_addEdge _ _ _
 
     have hG₁Precon : G₁.Preconnected := by
-      sorry
+      sorry -- I think this one's false!!
       done
 
     -- G₂ should be connected
-    have hG₂Connected : G₂.Connected := by
-      exact connected_when_subgraph_preconnected V v₁ hG₁SubG₂ hG₁Precon
+    have hG₂Connected : G₂.Connected :=
+      connected_when_subgraph_preconnected v₁.1 hG₁SubG₂ hG₁Precon
 
 
     /- this is because by removing two edges and adding one to
@@ -194,7 +189,7 @@ theorem IsEulerian.exists_eulerian_circuit (G : SimpleGraph V)
       sorry
       done
 
-    have hG₂NonEmptv : Fintype.card G₂.support ≥ 1 := by
+    have hG₂NonEmptv : 1 ≤ Fintype.card G₂.support := by
       sorry
       done
 
